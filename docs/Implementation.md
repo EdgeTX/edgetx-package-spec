@@ -324,6 +324,16 @@ resolve_new_version(old_package) → (new_manifest, new_version):
     return (new_manifest, new_version)
 ```
 
+**Version and update semantics:**
+
+- `package.version` is optional in manifests but recommended for managed updates
+- When both old and new versions are absent or equal, update returns "up to date"
+- **Limitation**: State records the git ref (branch/tag name) but not the resolved commit SHA
+  - This means force-pushed tags/branches cannot be reliably detected or reproduced
+  - Rollback provenance is weak without immutable revision tracking
+  - **Recommended enhancement**: Persist resolved commit SHA alongside ref in `installed.yml`
+  - This would enable: detecting when ref was force-pushed, reproducing exact installed state, and proper rollback support
+
 ---
 
 ## Variant Lookup Helpers
@@ -349,6 +359,14 @@ load_variant_manifest(variant, base_manifest) → merged_manifest:
     # Variant files must not declare their own variants
     if variant_doc.package.variants is present:
         error("variant manifest cannot itself declare variants: " + variant.path)
+    
+    # CRITICAL: Reject variant manifests that contain base-only metadata
+    # Variants should only provide content sections and optionally description
+    forbidden_fields = ["id", "version", "source_dir", "binary", "min_edgetx_version",
+                        "max_edgetx_version", "capabilities"]
+    for field in forbidden_fields:
+        if variant_doc.package[field] is present:
+            error("variant manifest cannot override " + field + ": " + variant.path)
     
     # variant file inherits id from base; only content sections are overridden
     merged = base_manifest.copy()
@@ -378,6 +396,8 @@ load_variant_manifest(variant, base_manifest) → merged_manifest:
     
     return merged
 ```
+
+**Note on schema validation**: The current JSON schema (`edgetx-manifest.v1.json`) validates both base and variant manifests with the same structure. It does not enforce that base manifests require `id` and `description`, or that variant manifests must not contain base-only fields. Implementations must perform these checks at runtime. A future schema revision should provide separate schemas for base vs variant contexts.
 
 **Capability merging rules:**
 ```
@@ -609,6 +629,8 @@ Apply this validation to:
 - Variant manifest `path` values
 - Any user-provided path arguments
 - **CRITICAL**: All paths loaded from state files (`files.yml`) before backup, deletion, or restore operations
+
+**Note on schema validation**: The current JSON schema (`edgetx-manifest.v1.json`) does not enforce all path security rules lexically. It permits absolute paths, backslashes, and `..` segments in path fields, and does not require `dest` when `path: .`. Implementations **must** apply the runtime checks above regardless of schema validation. Future schema revisions should add stricter lexical patterns where feasible, but full security validation (symlink resolution, containment checks) can only be performed at runtime.
 
 ---
 
