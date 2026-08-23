@@ -45,21 +45,26 @@ check_version_compatibility(
 )
 check_capabilities_compatibility(manifest.capabilities, radio_capabilities)
 
+# CRITICAL: Determine install mode - production (default) or dev mode
+# Dev items (marked dev: true) are excluded in production mode
+include_dev_items = command_has_flag("--dev")
+
 # Validate local dependencies: all depends[] entries must reference
 # a library declared in this package's libraries section
-validate_local_dependencies(manifest)
+validate_local_dependencies(manifest, include_dev_items)
 
 # Stage files and check conflicts at file level (not just directory level)
-check_conflicts_before_install(manifest, package.id, sd_root)
+# Dev filtering must be applied consistently across all operations
+check_conflicts_before_install(manifest, package.id, sd_root, include_dev_items)
 
-stage_files_locally(manifest, manifest_dir)
+stage_files_locally(manifest, manifest_dir, include_dev_items)
 if compilation_needed:
     compile_lua_files()
 
-copy_staged_files_to_sd()
+copy_staged_files_to_sd(include_dev_items)
 
 record_installed_state(installed.yml, package)
-record_file_ownership(files.yml, package)
+record_file_ownership(files.yml, package, include_dev_items)
 ```
 
 ---
@@ -104,15 +109,22 @@ check_version_compatibility(
 )
 check_capabilities_compatibility(new_manifest.capabilities, radio_capabilities)
 
+# CRITICAL: Preserve dev mode from the original install
+# Updates maintain the same mode unless explicitly changed
+include_dev_items = old_package.was_installed_with_dev or command_has_flag("--dev")
+
+# Validate local dependencies with the same mode
+validate_local_dependencies(new_manifest, include_dev_items)
+
 # NON-DESTRUCTIVE UPDATE: stage first, then atomically replace
-staging_dir = stage_files_locally(new_manifest, manifest_dir)
+staging_dir = stage_files_locally(new_manifest, manifest_dir, include_dev_items)
 if compilation_needed:
     compile_lua_files(staging_dir)
 
 # Verify all files staged successfully and check for conflicts
 # (exclude old_package.id since we're replacing it)
 verify_staging_complete(staging_dir, new_manifest)
-check_conflicts_before_install(new_manifest, old_package.id, sd_root)
+check_conflicts_before_install(new_manifest, old_package.id, sd_root, include_dev_items)
 
 # Create backup of old package state for potential rollback
 backup_dir = create_backup_dir()
@@ -241,7 +253,7 @@ find_manifest_file(manifest_dir, repo_id) → path:
 
 ```
 find_installed_package(query) → package:
-    # query may be a full id, GitHub shorthand, or display name
+    # query may be a full id or GitHub shorthand for suffix matching
     state = load_state(installed.yml)
 
     # exact id match
@@ -258,6 +270,8 @@ find_installed_package(query) → package:
 
     error("package not found: " + query)
 ```
+
+**Note**: Display-name lookup is not supported because `package.name` (the display name) is not persisted in state files. Queries use package IDs or suffixes only.
 
 ---
 
@@ -603,12 +617,16 @@ Apply this validation to:
 **Implementation requirement**: Conflict detection must check every individual destination file, not just top-level content item destinations.
 
 ```
-check_conflicts_before_install(manifest, current_package_id, sd_root):
+check_conflicts_before_install(manifest, current_package_id, sd_root, include_dev_items):
     # Build complete inventory of destination files after staging
-    staging_dir = stage_files_locally(manifest, manifest_dir)
+    staging_dir = stage_files_locally(manifest, manifest_dir, include_dev_items)
     dest_files = []
     
     for each content_item in manifest.content_items():
+        # CRITICAL: Apply same dev filtering as staging
+        if content_item.dev and not include_dev_items:
+            continue
+        
         dest_rel = content_item.dest if present else content_item.path
         staged_path = staging_dir / dest_rel
         
@@ -649,7 +667,7 @@ In non-interactive mode (e.g. CI pipelines or AI-agent usage), treat absence of 
 ## File Staging and Copy
 
 ```
-stage_files_locally(manifest, manifest_dir) → staging_dir:
+stage_files_locally(manifest, manifest_dir, include_dev_items) → staging_dir:
     staging_dir = create_temp_dir()
     
     # Determine source root based on source_dir
@@ -660,6 +678,10 @@ stage_files_locally(manifest, manifest_dir) → staging_dir:
         source_root = manifest_dir
 
     for each content_item in manifest.content_items():
+        # CRITICAL: Filter dev items based on install mode
+        if content_item.dev and not include_dev_items:
+            continue
+        
         # Try source_root first, then fall back to manifest_dir
         src = first_existing(source_root / content_item.path,
                              manifest_dir  / content_item.path)
