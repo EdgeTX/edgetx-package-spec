@@ -22,30 +22,35 @@ Each operation must follow an atomic transaction pattern:
    - `package_id`: Target package identifier
    - `timestamp`: Operation start time
    - `old_state`: Snapshot of current `installed.yml` and `files.yml` entries for this package
+   - `backup_files`: **CRITICAL**: Full backup of all files to be deleted or overwritten, stored in `.backup-<operation-id>/` with relative paths and hashes preserved
    - `staged_files`: List of files to be copied/removed with source paths and hashes
    - `new_state`: Target state after operation completes
 
 2. **Execute**: Perform file operations (copy, delete, backup)
-   - For update: backup existing files to `EDGETX/PKG/state/.backup-<package-id>/`
+   - **For all operations**: Before any destructive change (deletion, overwrite), back up the existing file bytes and hash to `.backup-<operation-id>/`
+   - For update: backup existing package files to backup directory
+   - For remove: backup all files before deletion
+   - For install: backup any untracked files that the user confirmed can be overwritten
    - For install/update: copy staged files to destinations
-   - For remove: delete tracked files
 
-3. **Commit**: Write a commit marker to the transaction record (`committed: true`)
+3. **Commit**: Write a commit marker to the transaction record (`committed: true`) using an atomic/durable file write
 
 4. **Finalize**: Update `installed.yml` and `files.yml`, then delete transaction record and backups
 
 **Recovery on startup:**
 
 On package manager startup, scan for `.txn-*.yml` files:
-- If `committed: false` or absent: rollback (restore old_state, remove staged files)
+- If `committed: false` or absent: rollback (restore all backed-up files, remove staged files, restore old_state)
 - If `committed: true`: complete the operation (apply new_state, clean up backups)
+- If transaction record is unreadable or corrupted: abort startup and log error - manual recovery required
 
 **Backup location:**
 
-Update operations must backup existing files to:
-- `EDGETX/PKG/state/.backup-<package-id>/` 
+All operations must backup existing files to:
+- `EDGETX/PKG/state/.backup-<operation-id>/` 
 - Preserve relative paths within backup directory
 - Include backup manifest with file hashes for integrity verification
+- **CRITICAL**: Never perform destructive operations without complete backup first
 
 ## `installed.yml`
 
@@ -58,6 +63,7 @@ packages:
     version: "1.2.0"
     variant: "edgetx.color.yml"         # null when no variants
     installed_at: "2026-08-23T12:40:00Z"
+    dev_mode: false                     # true if installed with --dev flag
     source:
       repo: github.com/offer-shmuely/lua-scripts
       ref: "v1.2.0"
@@ -75,6 +81,10 @@ packages:
       reason: ""
     last_checked_at: "2026-08-23T12:40:10Z"
 ```
+
+**Field semantics:**
+
+- `dev_mode`: Boolean indicating whether the package was installed with `--dev` flag (includes `dev: true` content items). Update operations preserve this mode unless explicitly changed. Defaults to `false` for packages installed before this field was introduced.
 
 ### Compatibility status
 

@@ -53,18 +53,22 @@ include_dev_items = command_has_flag("--dev")
 # a library declared in this package's libraries section
 validate_local_dependencies(manifest, include_dev_items)
 
-# Stage files and check conflicts at file level (not just directory level)
-# Dev filtering must be applied consistently across all operations
-check_conflicts_before_install(manifest, package.id, sd_root, include_dev_items)
+# Stage files locally for validation and hash computation
+staging_dir = stage_files_locally(manifest, manifest_dir, include_dev_items)
 
-stage_files_locally(manifest, manifest_dir, include_dev_items)
+# Check conflicts using the staged file inventory
+check_conflicts_before_install(manifest, package.id, sd_root, include_dev_items, staging_dir)
+
+# Compile if needed (modifies staging_dir in place)
 if compilation_needed:
-    compile_lua_files()
+    compile_lua_files(staging_dir)
 
-copy_staged_files_to_sd(include_dev_items)
+# Copy from staging to SD card
+copy_staged_files_to_sd(staging_dir, sd_root)
 
-record_installed_state(installed.yml, package)
-record_file_ownership(files.yml, package, include_dev_items)
+# Record state with dev mode
+record_installed_state(installed.yml, package, include_dev_items)
+record_file_ownership(files.yml, package, staging_dir)
 ```
 
 ---
@@ -111,7 +115,7 @@ check_capabilities_compatibility(new_manifest.capabilities, radio_capabilities)
 
 # CRITICAL: Preserve dev mode from the original install
 # Updates maintain the same mode unless explicitly changed
-include_dev_items = old_package.was_installed_with_dev or command_has_flag("--dev")
+include_dev_items = (old_package.dev_mode if exists else false) or command_has_flag("--dev")
 
 # Validate local dependencies with the same mode
 validate_local_dependencies(new_manifest, include_dev_items)
@@ -287,15 +291,16 @@ parse_yaml(file_path) → document:
     # 3. Limit alias/anchor expansion depth and count to prevent DoS
     # 4. Only accept single-document YAML files (reject --- separators)
     # 5. Use safe loading mode that constructs only standard types
+    # 6. CRITICAL: Allow unknown fields for forward compatibility
     
     content = read_file(file_path)
     if len(content) > MAX_MANIFEST_SIZE:  # e.g., 1MB
         error("manifest file too large: " + file_path)
     
-    # Use language-specific safe YAML loader:
-    # - Python: yaml.safe_load()
-    # - Go: gopkg.in/yaml.v3 with KnownFields(true)
-    # - Rust: serde_yaml with deny_unknown_fields
+    # Use language-specific safe YAML loader that allows unknown fields:
+    # - Python: yaml.safe_load() (allows unknown fields by default)
+    # - Go: gopkg.in/yaml.v3 without KnownFields (allows unknown)
+    # - Rust: serde_yaml without deny_unknown_fields
     # - C++: yaml-cpp with safe mode
     document = safe_yaml_parse(content)
     
@@ -309,6 +314,8 @@ Apply these security requirements to:
 - Base package manifests (`edgetx.yml`)
 - Variant manifests
 - State files (`installed.yml`, `files.yml`)
+
+**Forward compatibility**: After parsing, validate known fields while preserving unknown fields. See "Compatibility Checking" section for handling unknown spec versions.
 
 ---
 
@@ -362,8 +369,9 @@ load_variant_manifest(variant, base_manifest) → merged_manifest:
     
     # CRITICAL: Reject variant manifests that contain base-only metadata
     # Variants should only provide content sections and optionally description
-    forbidden_fields = ["id", "version", "source_dir", "binary", "min_edgetx_version",
-                        "max_edgetx_version", "capabilities"]
+    forbidden_fields = ["id", "name", "version", "category", "authors", "urls", 
+                        "screenshots", "keywords", "license", "source_dir", "binary",
+                        "min_edgetx_version", "max_edgetx_version", "capabilities"]
     for field in forbidden_fields:
         if variant_doc.package[field] is present:
             error("variant manifest cannot override " + field + ": " + variant.path)
@@ -403,33 +411,59 @@ load_variant_manifest(variant, base_manifest) → merged_manifest:
 ```
 merge_capability_requirements(base_caps, variant_caps) → merged_caps:
     # Both base and variant requirements must be satisfied
-    # For conflicting values, the intersection or stricter requirement applies
+    # Conflicting explicit values must be rejected
     merged = {}
     
-    for each capability_key in union(base_caps.keys, variant_caps.keys):
-        base_value = base_caps[capability_key]
-        variant_value = variant_caps[capability_key]
-        
-        if base_value exists and variant_value exists:
-            # Both specify the same capability
-            if capability_key == "touch":
-                # Boolean: both must be true, or both must be false/absent
-                if base_value == true or variant_value == true:
-                    merged[capability_key] = true
-            else if capability_key == "display":
-                # Nested object: merge recursively
-                merged[capability_key] = merge_display_requirements(
-                    base_value, variant_value
-                )
-            else:
-                # For other capabilities, both must match or error
-                if base_value != variant_value:
-                    error("Conflicting capability: " + capability_key)
-                merged[capability_key] = base_value
-        else if base_value exists:
-            merged[capability_key] = base_value
-        else:
-            merged[capability_key] = variant_value
+    if base_caps.display exists or variant_caps.display exists:
+        merged.display = merge_display_requirements(
+            base_caps.display if exists else {},
+            variant_caps.display if exists else {}
+        )
+    
+    return merged
+
+
+merge_display_requirements(base_display, variant_display) → merged_display:
+    # Merge display capability constraints - both must be satisfied
+    merged = {}
+    
+    # Display type: both must match if both are specified
+    if base_display.type exists and variant_display.type exists:
+        if base_display.type != variant_display.type:
+            error("Conflicting display type: base requires " + base_display.type +
+                  ", variant requires " + variant_display.type)
+        merged.type = base_display.type
+    else if base_display.type exists:
+        merged.type = base_display.type
+    else if variant_display.type exists:
+        merged.type = variant_display.type
+    
+    # Display resolution: both must match if both are specified
+    if base_display.resolution exists and variant_display.resolution exists:
+        if base_display.resolution != variant_display.resolution:
+            error("Conflicting display resolution: base requires " + 
+                  base_display.resolution + ", variant requires " + 
+                  variant_display.resolution)
+        merged.resolution = base_display.resolution
+    else if base_display.resolution exists:
+        merged.resolution = base_display.resolution
+    else if variant_display.resolution exists:
+        merged.resolution = variant_display.resolution
+    
+    # Touch: union of requirements - if either requires touch, result requires touch
+    # If either explicitly requires non-touch (false), check for conflict
+    base_touch = base_display.touch if exists else null
+    variant_touch = variant_display.touch if exists else null
+    
+    if base_touch == true or variant_touch == true:
+        merged.touch = true
+    else if base_touch == false and variant_touch == false:
+        merged.touch = false
+    else if base_touch == false and variant_touch == true:
+        error("Conflicting touch requirement: base requires non-touch, variant requires touch")
+    else if base_touch == true and variant_touch == false:
+        error("Conflicting touch requirement: base requires touch, variant requires non-touch")
+    # else: both null, no touch constraint
     
     return merged
 ```
@@ -619,9 +653,9 @@ is_within_directory(path, root) → bool:
 ```
 
 **Symlink handling policy:**
-- **Source paths**: Symlinks in package source trees (local git clones) are followed during copy staging
-- **Destination paths**: Before writing to SD card, verify each path component from root to target to prevent escapes via symlinked parent directories. Check symlinks BEFORE creating child paths, not after.
-- **Recommendation**: For maximum security on non-FAT filesystems (dev/test environments), use descriptor-based file operations with `O_NOFOLLOW` and `openat`-style APIs to traverse directories safely
+- **Source paths**: Symlinks in package source trees (local git clones) must NOT be followed if they point outside the repository root. Verify canonical containment for every source file before copying.
+- **Destination paths**: Use descriptor-based file operations with `O_NOFOLLOW` or equivalent platform API to prevent TOCTOU races. Check parent directories AND create child paths relative to verified directory descriptors.
+- **CRITICAL requirement**: All file operations must use non-racy descriptor-relative APIs (e.g., `openat` with `O_NOFOLLOW` on POSIX, or equivalent). Lexical path pre-checks alone cannot prevent TOCTOU attacks.
 
 Apply this validation to:
 - All `path` and `dest` fields in content items before file operations
@@ -639,9 +673,8 @@ Apply this validation to:
 **Implementation requirement**: Conflict detection must check every individual destination file, not just top-level content item destinations.
 
 ```
-check_conflicts_before_install(manifest, current_package_id, sd_root, include_dev_items):
-    # Build complete inventory of destination files after staging
-    staging_dir = stage_files_locally(manifest, manifest_dir, include_dev_items)
+check_conflicts_before_install(manifest, current_package_id, sd_root, include_dev_items, staging_dir):
+    # Use the provided staging directory to get complete file inventory
     dest_files = []
     
     for each content_item in manifest.content_items():
