@@ -31,11 +31,12 @@ check_spec_version(manifest.spec_version)
 if manifest.has_variants():
     if user_specified_variant:
         selected_variant = find_variant_by_path(manifest, user_variant)
+        manifest = load_variant_manifest(selected_variant, manifest)
     else if radio_capabilities_available:
         selected_variant = auto_select_best_variant(manifest, radio)
+        manifest = load_variant_manifest(selected_variant, manifest)
     else:
         error("could not detect radio, must specify --path")
-    load_variant_manifest(selected_variant)
 
 check_version_compatibility(
     manifest.min_edgetx_version,
@@ -79,11 +80,13 @@ if new_version == old_version:
 if old_package.variant:
     reuse_variant = old_package.variant
     if variant_still_exists(new_manifest, reuse_variant):
-        load_variant_manifest(reuse_variant)
+        selected_variant = find_variant_by_path(new_manifest, reuse_variant)
+        new_manifest = load_variant_manifest(selected_variant, new_manifest)
     else:
         error("variant no longer exists in new version, reinstall to switch")
 else if new_manifest.has_variants():
-    auto_select_best_variant(new_manifest, radio)
+    selected_variant = auto_select_best_variant(new_manifest, radio)
+    new_manifest = load_variant_manifest(selected_variant, new_manifest)
 
 check_version_compatibility(
     new_manifest.min_edgetx_version,
@@ -107,6 +110,10 @@ backup_dir = create_backup_dir()
 old_files = load_tracked_files_for_package(old_package.id)
 for each file in old_files:
     backup_file(sd_root + file.path, backup_dir)
+backup_state_files(backup_dir, installed.yml, files.yml)
+
+# Build list of new file destinations for cleanup on rollback
+new_file_list = build_destination_file_list(staging_dir, new_manifest)
 
 try:
     # Remove old files
@@ -123,10 +130,13 @@ try:
     remove_backup_dir(backup_dir)
     
 catch error:
-    # Rollback on failure
+    # Rollback on failure: remove newly created files, restore old files and state
     warn("update failed: " + error + ", rolling back")
+    for each new_file in new_file_list:
+        if file_exists(sd_root / new_file) and new_file not in old_files:
+            delete_file(sd_root / new_file)
     restore_from_backup(backup_dir, sd_root)
-    restore_state_files(backup_dir)
+    restore_state_files(backup_dir, installed.yml, files.yml)
     throw error
 finally:
     cleanup_staging_dir(staging_dir)
@@ -260,7 +270,7 @@ variant_still_exists(manifest, path) → bool:
     return false
 
 
-load_variant_manifest(variant) → merged_manifest:
+load_variant_manifest(variant, base_manifest) → merged_manifest:
     variant_doc = parse_yaml(variant.path)
     
     # Variant files must not declare their own variants
@@ -281,8 +291,8 @@ load_variant_manifest(variant) → merged_manifest:
     if variant_doc.package.description is present:
         merged.package.description = variant_doc.package.description
     
-    # Merge the variant's capability filter into effective capabilities
-    # for compatibility checking and state recording
+    # Merge the variant's capability filter for compatibility checking
+    # The variant filter becomes the effective capabilities for this install
     if variant.capabilities is present:
         merged.package.capabilities = variant.capabilities
     
@@ -383,9 +393,13 @@ check_capabilities_compatibility(manifest_capabilities, radio_capabilities):
             error(CAPABILITY_MISMATCH,
                   "requires display resolution " + cap.resolution
                   + ", radio has " + radio_capabilities.display.resolution)
-        if cap.touch and not radio_capabilities.display.touch:
-            error(CAPABILITY_MISMATCH,
-                  "requires touchscreen display")
+        if cap.touch is present:
+            # touch: true requires touchscreen, touch: false requires non-touch
+            if cap.touch != radio_capabilities.display.touch:
+                expected = "touchscreen" if cap.touch else "non-touch"
+                actual = "touchscreen" if radio_capabilities.display.touch else "non-touch"
+                error(CAPABILITY_MISMATCH,
+                      "requires " + expected + " display, radio has " + actual)
 ```
 
 Version comparison uses semantic versioning rules. The `x` wildcard in `max_edgetx_version` (e.g. `"2.13.x"`) matches any patch level within that minor version.
@@ -397,20 +411,31 @@ Version comparison uses semantic versioning rules. The `x` wildcard in `max_edge
 ## Local Library Dependency Validation
 
 ```
-validate_local_dependencies(manifest):
+validate_local_dependencies(manifest, include_dev_items):
     # Verify all depends[] entries reference a library declared in this manifest
-    declared_libs = set([lib.name for lib in manifest.libraries])
+    # and that non-dev items don't depend on dev-only libraries
+    declared_libs = {lib.name: lib.dev for lib in manifest.libraries}
     
     for each content_item in manifest.content_items():
+        # Skip dev items if not installing with --dev
+        if content_item.dev and not include_dev_items:
+            continue
+            
         if content_item.depends:
             for each dep_name in content_item.depends:
                 if dep_name not in declared_libs:
                     error(DEPENDENCY_MISSING,
                           content_item.name + " depends on '" + dep_name
                           + "' but no library with that name is declared in this package")
+                
+                # Prevent non-dev items from depending on dev-only libraries
+                if not content_item.dev and declared_libs[dep_name]:
+                    error(DEPENDENCY_INVALID,
+                          "non-dev item '" + content_item.name
+                          + "' cannot depend on dev-only library '" + dep_name + "'")
 ```
 
-Dependencies in the manifest are **local to the package** — the `depends` field references library entries declared in the same manifest's `libraries` section. All declared libraries and dependent content items are installed together as part of the package, with file ownership tracked per package.
+Dependencies in the manifest are **local to the package** — the `depends` field references library entries declared in the same manifest's `libraries` section. All declared libraries and dependent content items (excluding those marked `dev: true` unless `--dev` is passed) are installed together as part of the package, with file ownership tracked per package.
 
 ---
 
@@ -431,28 +456,37 @@ normalize_and_validate_path(path, root_dir) → validated_path:
     # 3. Normalize the path (resolve ., .., empty segments)
     normalized = normalize_path(path)
     
-    # 4. Ensure normalized path does not escape root
-    full_path = join_paths(root_dir, normalized)
-    if not is_within_directory(full_path, root_dir):
+    # 4. Ensure normalized path does not escape root (lexical check)
+    if normalized contains ".." or starts_with("/"):
         error("path escapes root directory: " + path)
+    
+    # 5. For destination paths on disk, canonicalize to detect symlink escapes
+    #    Use realpath/canonicalize to resolve symlinks and verify containment
+    full_path = join_paths(root_dir, normalized)
+    if path_exists(full_path):
+        canonical = canonicalize_path(full_path)   # Resolves symlinks
+        if not is_within_directory(canonical, canonicalize_path(root_dir)):
+            error("path escapes root via symlink: " + path)
     
     return normalized
 
 
 is_within_directory(path, root) → bool:
-    # After normalization, verify that the absolute path is within root
-    abs_path = absolute_path(path)
-    abs_root = absolute_path(root)
-    return abs_path.starts_with(abs_root + "/") or abs_path == abs_root
+    # After canonicalization, verify the absolute path is within root
+    # Use path component comparison, not string prefix, to avoid false positives
+    return path == root or path.starts_with(root + "/")
 ```
+
+**Symlink handling policy:**
+- **Source paths**: Symlinks in package source trees (local git clones) are followed during copy staging
+- **Destination paths**: Before writing to SD card, canonicalize and verify containment to reject symlinks that escape the SD root
+- **Recommendation**: For maximum security on non-FAT filesystems (dev/test environments), use descriptor-based file operations with `O_NOFOLLOW` or equivalent
 
 Apply this validation to:
 - All `path` and `dest` fields in content items before file operations
 - `source_dir` in package metadata
 - Variant manifest `path` values
 - Any user-provided path arguments
-
-This prevents malicious manifests from writing outside the SD card structure (e.g., `../../etc/passwd` or paths with symlinks that escape the root).
 
 ---
 
@@ -508,9 +542,16 @@ In non-interactive mode (e.g. CI pipelines or AI-agent usage), treat absence of 
 ```
 stage_files_locally(manifest, manifest_dir) → staging_dir:
     staging_dir = create_temp_dir()
-    source_root = manifest_dir / manifest.package.source_dir   # source_dir may be "."
+    
+    # Determine source root based on source_dir
+    if manifest.package.source_dir is present:
+        source_root = manifest_dir / manifest.package.source_dir
+        validate_path(manifest.package.source_dir, manifest_dir)
+    else:
+        source_root = manifest_dir
 
     for each content_item in manifest.content_items():
+        # Try source_root first, then fall back to manifest_dir
         src = first_existing(source_root / content_item.path,
                              manifest_dir  / content_item.path)
         if src does not exist:
@@ -624,12 +665,6 @@ remove_package_from_installed_state(package_id):
 remove_tracked_file_entries(files_yml, package_id):
     state.files = [f for f in state.files if f.owner_id != package_id]
     write_yaml(files_yml, state)
-
-
-remove_package_from_lib_requested_by(lib_id, lib_version, package_id):
-    lib = find_lib(state, lib_id, lib_version)
-    lib.requested_by = [r for r in lib.requested_by if r.package_id != package_id]
-    write_yaml(installed_yml, state)
 ```
 
 ---
@@ -703,65 +738,7 @@ packages:
     last_checked_at: "2026-08-23T13:00:10Z"
 ```
 
----
-
-### Library reverse-dependency tracking
-
-```yaml
-# EDGETX/PKG/state/installed.yml (excerpt)
-schema_version: 1
-libraries:
-  - lib_id: github.com/edgetx/lib-json
-    version: "2.1.3"
-    path: SCRIPTS/LIBS/pkg/edgetx.json/2.1.3
-    requested_by:
-      - package_id: github.com/acme/tool-a
-        package_version: "1.0.0"
-      - package_id: github.com/acme/tool-b
-        package_version: "3.2.0"
-
-package_deps:
-  - package_id: github.com/acme/tool-a
-    package_version: "1.0.0"
-    libs:
-      - lib_id: github.com/edgetx/lib-json
-        constraint: "^2.1.0"
-        resolved_version: "2.1.3"
-  - package_id: github.com/acme/tool-b
-    package_version: "3.2.0"
-    libs:
-      - lib_id: github.com/edgetx/lib-json
-        constraint: "^2.0.0"
-        resolved_version: "2.1.3"
-```
-
----
-
-### Multiple packages and shared libraries
-
-After installing `tool-a` and `tool-b` both depending on `lib-json`:
-
-```yaml
-schema_version: 1
-packages:
-  - id: github.com/acme/tool-a
-    version: "1.0.0"
-    variant: null
-    # ...
-  - id: github.com/acme/tool-b
-    version: "3.2.0"
-    variant: null
-    # ...
-libraries:
-  - lib_id: github.com/edgetx/lib-json
-    version: "2.1.3"
-    path: SCRIPTS/LIBS/pkg/edgetx.json/2.1.3
-    requested_by:
-      - package_id: github.com/acme/tool-a
-        package_version: "1.0.0"
-      - package_id: github.com/acme/tool-b
-        package_version: "3.2.0"
-```
+**Note**: Local libraries declared in a package's manifest are installed as regular files owned by that package. They are tracked in `files.yml` like any other content and removed when the owning package is removed.
 
 After removing `tool-a`:
 
