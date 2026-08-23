@@ -2,10 +2,10 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/EdgeTX/edgetx-package-spec/main/schema/edgetx-manifest.v1.json",
   "title": "EdgeTX Package Manifest",
-  "description": "JSON Schema for the EdgeTX edgetx.yml package manifest format (v1). See docs/Manifest.md for the normative specification.",
+  "description": "JSON Schema for the EdgeTX edgetx.yml package manifest format (v1). This schema validates both base manifests and variant manifests. Variant manifests inherit id from their base and typically only declare content sections. See docs/Manifest.md for the normative specification.",
   "type": "object",
   "required": ["package"],
-  "additionalProperties": false,
+  "additionalProperties": true,
   "properties": {
     "spec_version": {
       "type": "string",
@@ -59,13 +59,12 @@
   "$defs": {
     "packageBlock": {
       "type": "object",
-      "description": "Top-level package metadata.",
-      "required": ["id", "description"],
-      "additionalProperties": false,
+      "description": "Top-level package metadata. For base manifests, id and description are required. For variant manifests, id is inherited from base (omit it) and description is optional (can override base).",
+      "additionalProperties": true,
       "properties": {
         "id": {
           "type": "string",
-          "description": "Canonical package identifier. Must be a URL-like path with at least host/owner/repo (3 slash-separated segments). First segment must contain a dot.",
+          "description": "Canonical package identifier. Required for base manifests, inherited for variant manifests. Must be a URL-like path with at least host/owner/repo (3 slash-separated segments). First segment must contain a dot.",
           "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]*\\.[a-zA-Z0-9_.-]+(/[a-zA-Z0-9][a-zA-Z0-9_.-]*){2,}$",
           "minLength": 5,
           "maxLength": 256,
@@ -82,7 +81,7 @@
         },
         "description": {
           "type": "string",
-          "description": "Non-empty human-readable description of the package.",
+          "description": "Non-empty human-readable description of the package. Required for base manifests, optional (can override) for variants.",
           "minLength": 1,
           "maxLength": 1024
         },
@@ -135,12 +134,14 @@
           "minLength": 1
         },
         "min_edgetx_version": {
-          "$ref": "#/$defs/semverOrWildcard",
-          "description": "Minimum EdgeTX firmware version required."
+          "type": "string",
+          "description": "Minimum EdgeTX firmware version required. Must be a complete semantic version (no wildcards).",
+          "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
         },
         "max_edgetx_version": {
-          "$ref": "#/$defs/semverOrWildcard",
-          "description": "Maximum EdgeTX firmware version supported."
+          "type": "string",
+          "description": "Maximum EdgeTX firmware version supported. May use 'x' as wildcard patch level (e.g., '2.13.x' means any 2.13.*).",
+          "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*|x)$"
         },
         "binary": {
           "type": "boolean",
@@ -192,11 +193,6 @@
           "minLength": 1
         }
       }
-    },
-    "semverOrWildcard": {
-      "type": "string",
-      "description": "Semantic version string, optionally with a wildcard patch level (e.g. '2.13.x').",
-      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*|x)$"
     },
     "capabilities": {
       "type": "object",

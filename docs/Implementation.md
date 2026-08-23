@@ -44,12 +44,12 @@ check_version_compatibility(
 )
 check_capabilities_compatibility(manifest.capabilities, radio_capabilities)
 
-for each content_item in manifest.content_items():
-    check_file_not_owned_by_other_package(content_item.dest, package.id)
-
 # Validate local dependencies: all depends[] entries must reference
 # a library declared in this package's libraries section
 validate_local_dependencies(manifest)
+
+# Stage files and check conflicts at file level (not just directory level)
+check_conflicts_before_install(manifest, package.id, sd_root)
 
 stage_files_locally(manifest, manifest_dir)
 if compilation_needed:
@@ -92,16 +92,15 @@ check_version_compatibility(
 )
 check_capabilities_compatibility(new_manifest.capabilities, radio_capabilities)
 
-for each content_item in new_manifest.content_items():
-    check_file_not_owned_by_other_package(content_item.dest, old_package.id)
-
 # NON-DESTRUCTIVE UPDATE: stage first, then atomically replace
 staging_dir = stage_files_locally(new_manifest, manifest_dir)
 if compilation_needed:
     compile_lua_files(staging_dir)
 
-# Verify all files staged successfully before modifying SD card
+# Verify all files staged successfully and check for conflicts
+# (exclude old_package.id since we're replacing it)
 verify_staging_complete(staging_dir, new_manifest)
+check_conflicts_before_install(new_manifest, old_package.id, sd_root)
 
 # Create backup of old package state for potential rollback
 backup_dir = create_backup_dir()
@@ -263,14 +262,30 @@ variant_still_exists(manifest, path) → bool:
 
 load_variant_manifest(variant) → merged_manifest:
     variant_doc = parse_yaml(variant.path)
+    
+    # Variant files must not declare their own variants
+    if variant_doc.package.variants is present:
+        error("variant manifest cannot itself declare variants: " + variant.path)
+    
     # variant file inherits id from base; only content sections are overridden
     merged = base_manifest.copy()
     merged.tools     = variant_doc.tools     if present else []
     merged.widgets   = variant_doc.widgets   if present else []
     merged.libraries = variant_doc.libraries if present else []
-    # ... repeat for all content section types
+    merged.telemetry = variant_doc.telemetry if present else []
+    merged.functions = variant_doc.functions if present else []
+    merged.mixes     = variant_doc.mixes     if present else []
+    merged.sounds    = variant_doc.sounds    if present else []
+    merged.themes    = variant_doc.themes    if present else []
+    
     if variant_doc.package.description is present:
         merged.package.description = variant_doc.package.description
+    
+    # Merge the variant's capability filter into effective capabilities
+    # for compatibility checking and state recording
+    if variant.capabilities is present:
+        merged.package.capabilities = variant.capabilities
+    
     return merged
 ```
 
@@ -443,15 +458,45 @@ This prevents malicious manifests from writing outside the SD card structure (e.
 
 ## File Conflict Detection
 
+**Implementation requirement**: Conflict detection must check every individual destination file, not just top-level content item destinations.
+
 ```
-check_file_not_owned_by_other_package(dest_path, current_package_id):
-    owner = find_owner_in_files_yml(dest_path)
-    if owner and owner.id != current_package_id:
-        warn("file conflict: " + dest_path
-             + " is already owned by " + owner.id)
-        if not user_confirmed_overwrite():
-            error(FILE_CONFLICT,
-                  "aborting install due to file conflict on " + dest_path)
+check_conflicts_before_install(manifest, current_package_id, sd_root):
+    # Build complete inventory of destination files after staging
+    staging_dir = stage_files_locally(manifest, manifest_dir)
+    dest_files = []
+    
+    for each content_item in manifest.content_items():
+        dest_rel = content_item.dest if present else content_item.path
+        staged_path = staging_dir / dest_rel
+        
+        # Walk the staged tree to get all individual files
+        for each file in walk(staged_path):
+            dest_file_path = dest_rel / relative_path(file, staged_path)
+            dest_files.append(dest_file_path)
+    
+    # Check for duplicates within this package
+    if dest_files has duplicates:
+        error(FILE_CONFLICT,
+              "package maps multiple source items to the same destination: "
+              + duplicate_paths)
+    
+    # Check ownership of each destination file
+    for each dest_path in dest_files:
+        owner = find_owner_in_files_yml(dest_path)
+        if owner and owner.id != current_package_id:
+            warn("file conflict: " + dest_path
+                 + " is already owned by " + owner.id)
+            if not user_confirmed_overwrite():
+                error(FILE_CONFLICT,
+                      "aborting install due to file conflict on " + dest_path)
+        
+        # Check for untracked files that would be overwritten
+        if file_exists(sd_root / dest_path) and not owner:
+            warn("would overwrite untracked file: " + dest_path)
+            if not user_confirmed_overwrite():
+                error(FILE_CONFLICT,
+                      "aborting install due to untracked file: " + dest_path)
 ```
 
 In non-interactive mode (e.g. CI pipelines or AI-agent usage), treat absence of user confirmation as implicit rejection and abort.

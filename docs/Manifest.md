@@ -152,8 +152,8 @@ themes:
 | `keywords` | no | Array of keyword strings for discovery. |
 | `license` | no | SPDX license expression. Supports compound expressions (e.g., `"MIT OR Apache-2.0"`). |
 | `source_dir` | no | Subdirectory containing source files, relative to the manifest. |
-| `min_edgetx_version` | no | Minimum EdgeTX version required. |
-| `max_edgetx_version` | no | Maximum EdgeTX version supported. |
+| `min_edgetx_version` | no | Minimum EdgeTX version required. Must be a complete semantic version (e.g., `"2.12.0"`), no wildcards. |
+| `max_edgetx_version` | no | Maximum EdgeTX version supported. May use `x` as a wildcard patch level (e.g., `"2.13.x"` matches any 2.13.*). |
 | `binary` | no | Set to `true` to allow `.luac` bytecode installation. |
 
 ### spec_version
@@ -191,7 +191,9 @@ The CLI accepts GitHub shorthand (`ExpressLRS/Lua-Scripts`) as input — it's ex
 - **`authors[].email`** is validated as an RFC 5321 email address when provided.
 - **`urls[].url`** is validated as a well-formed URL.
 - **`screenshots`** entries must point to files that exist relative to the manifest directory.
-- **`min_edgetx_version` / `max_edgetx_version`** constrain compatibility using EdgeTX firmware version only.
+- **`min_edgetx_version`** must be a complete semantic version (e.g., `"2.12.0"`). Wildcards are not allowed in minimum version.
+- **`max_edgetx_version`** may use `x` as a wildcard patch level (e.g., `"2.13.x"` matches any version 2.13.*). The wildcard form is only supported in the maximum version.
+- **Version range validity**: When both are present, `min_edgetx_version` must be less than or equal to `max_edgetx_version` after wildcard expansion. Tooling should reject inverted ranges.
 
 ## Radio capabilities
 
@@ -245,10 +247,10 @@ package:
           touch: true
 ```
 
-**Variant files don't declare their own `id`** — they inherit from the base manifest. A variant file only lists its content (tools, widgets, etc.):
+**Variant files don't declare their own `id`** — they inherit from the base manifest. A variant file only lists its content (tools, widgets, etc.) and optionally overrides the `description`:
 
 ```yaml
-# edgetx.color.yml — no `id` needed
+# edgetx.color.yml — no `id` needed, inherits from base
 package:
   description: Yaapu Telemetry (Color LCD)
 widgets:
@@ -256,7 +258,9 @@ widgets:
     path: WIDGETS/yaapu
 ```
 
-When `variants` is present, the CLI auto-selects the best matching variant based on the connected radio:
+**Variant nesting is not allowed**: A variant manifest must not itself declare a `variants` section. Variant resolution is exactly one level deep.
+
+When `variants` is present in the base manifest, the CLI auto-selects the best matching variant based on the connected radio:
 
 1. Loads the base manifest and sees `variants`
 2. Detects radio capabilities from the SD card (board → catalog lookup)
@@ -272,7 +276,7 @@ pkg install yaapu/FrskyTelemetryScript --path edgetx.bw128x64.yml
 pkg install yaapu/FrskyTelemetryScript::edgetx.bw128x64.yml
 ```
 
-**Update behavior:** `pkg update` always keeps the currently-installed variant. To switch variants, use `pkg install` explicitly (with or without the override).
+**Update behavior:** `pkg update` always keeps the currently-installed variant unless the user explicitly runs `pkg install` to switch.
 
 Variant resolution is one level deep — a variant manifest should not itself declare further variants.
 
