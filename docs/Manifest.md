@@ -186,7 +186,9 @@ The CLI accepts GitHub shorthand (`ExpressLRS/Lua-Scripts`) as input — it's ex
 
 - **`spec_version`** is optional. When present, must match `MAJOR.MINOR` format (e.g. `"1.0"`). Tooling should warn on absence and handle unknown future versions gracefully rather than rejecting them outright.
 - **`id`** must have at least three `/`-separated segments (`host/owner/repo`). The first segment must contain `.` (is a host). Each segment must match `^[a-zA-Z0-9][a-zA-Z0-9_.-]*$`. Extra segments become subpackage path.
+  - **Base manifest requirement**: A manifest loaded as the root package entry point (base manifest) **must** contain `package.id`. Omission of `id` is only valid when a file is loaded through a base manifest's `variants[].path` reference.
 - **`description`** must be present and non-empty.
+  - **Base manifest requirement**: A manifest loaded as the root package entry point (base manifest) **must** contain a non-empty `package.description`. Variant manifests may omit `description` to inherit from base, or provide their own to override.
 - **`license`** is validated as an SPDX expression. Compound expressions like `"MIT OR Apache-2.0"` and `"Apache-2.0 AND MIT"` are accepted.
 - **`authors[].email`** is validated as an RFC 5321 email address when provided.
 - **`urls[].url`** is validated as a well-formed URL.
@@ -194,6 +196,12 @@ The CLI accepts GitHub shorthand (`ExpressLRS/Lua-Scripts`) as input — it's ex
 - **`min_edgetx_version`** must be a complete semantic version (e.g., `"2.12.0"`). Wildcards are not allowed in minimum version.
 - **`max_edgetx_version`** may use `x` as a wildcard patch level (e.g., `"2.13.x"` matches any version 2.13.*). The wildcard form is only supported in the maximum version.
 - **Version range validity**: When both are present, `min_edgetx_version` must be less than or equal to `max_edgetx_version` after wildcard expansion. Tooling should reject inverted ranges.
+
+**Schema validation limitations**: The current JSON schema (`schema/edgetx-manifest.v1.json`) does not enforce the context-specific requirements for base vs variant manifests. The schema validates both base and variant manifests with the same structure and cannot distinguish whether `id` and `description` are required based on how the manifest is loaded. Implementations **must** perform these context-aware checks at runtime after loading:
+- When loading a manifest as a root package (via CLI package ref, direct file path, or repository root `edgetx.yml`), verify that `package.id` and `package.description` are present and non-empty.
+- When loading a manifest through a `variants[].path` reference from a base manifest, `id` and `description` are optional (inherited from base if omitted).
+
+This distinction cannot be encoded in a single JSON Schema without external context. Future schema revisions may provide separate schemas for base (`baseManifest`) and variant (`variantManifest`) contexts, but current tooling must implement these checks programmatically.
 
 ## Radio capabilities
 
@@ -247,7 +255,7 @@ package:
           touch: true
 ```
 
-**Variant files don't declare their own `id`** — they inherit from the base manifest. A variant file only lists its content (tools, widgets, etc.) and optionally overrides the `description`:
+**Variant files don't declare their own `id`** — they inherit from the base manifest. A variant file only lists its content (tools, widgets, etc.) and optionally overrides the `description`. **Implementation requirement**: When loading a manifest via a `variants[].path` reference, the `package.id` field is optional (inherited from base). When loading a manifest as a root package entry point, `package.id` and `package.description` are **required**.
 
 ```yaml
 # edgetx.color.yml — no `id` needed, inherits from base
