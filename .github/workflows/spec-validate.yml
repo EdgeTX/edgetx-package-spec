@@ -1,0 +1,65 @@
+name: Spec Validate
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  conformance-tests:
+    name: Conformance — schema validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install validation dependencies
+        run: pip install jsonschema PyYAML
+
+      - name: Run conformance tests
+        run: python conformance/run_tests.py
+
+  docs-lint:
+    name: Docs — lint Markdown
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install markdownlint-cli
+        run: npm install -g markdownlint-cli
+
+      - name: Lint Markdown files
+        run: markdownlint --ignore node_modules "**/*.md"
+
+  publish-schema:
+    name: Publish schema as release asset (on release tag)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release'
+    needs: [conformance-tests]
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Attach schema to GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${{ github.ref_name }}" \
+            schema/edgetx-manifest.v1.json \
+            --clobber

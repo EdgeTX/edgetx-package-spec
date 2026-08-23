@@ -1,0 +1,15 @@
+# Package with both min and max EdgeTX version constraints.
+package:
+  id: github.com/acme/versioned-tool
+  name: Versioned Tool
+  description: Tool that is only compatible with a specific range of EdgeTX firmware
+  license: MIT
+  min_edgetx_version: "2.12.0"
+  max_edgetx_version: "2.13.x"
+  capabilities:
+    display:
+      type: colorlcd
+
+tools:
+  - name: VersionedTool
+    path: SCRIPTS/TOOLS/VersionedTool

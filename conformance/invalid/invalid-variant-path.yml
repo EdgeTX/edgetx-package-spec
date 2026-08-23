@@ -1,0 +1,9 @@
+# INVALID: variant path does not end with .yml or .yaml.
+package:
+  id: github.com/acme/bad-variant
+  description: Package with a variant path that lacks the .yml extension
+  variants:
+    - path: edgetx.color
+      capabilities:
+        display:
+          type: colorlcd

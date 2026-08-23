@@ -1,0 +1,3 @@
+# INVALID: missing required 'description' field.
+package:
+  id: github.com/acme/no-desc-tool

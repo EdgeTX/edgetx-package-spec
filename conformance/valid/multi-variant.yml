@@ -1,0 +1,25 @@
+# Package with BW and color LCD variants.
+# The base manifest declares available variants and their capability filters.
+# Each variant file lists only its content sections.
+package:
+  id: github.com/yaapu/FrskyTelemetryScript
+  name: Yaapu Telemetry Script
+  description: Yaapu Telemetry Script and Widget for EdgeTX
+  license: GPL-3.0-only
+  source_dir: OTX_ETX
+  min_edgetx_version: "2.11.0"
+  variants:
+    - path: edgetx.bw128x64.yml
+      capabilities:
+        display:
+          type: bw
+          resolution: 128x64
+    - path: edgetx.color.yml
+      capabilities:
+        display:
+          type: colorlcd
+    - path: edgetx.color-touch.yml
+      capabilities:
+        display:
+          type: colorlcd
+          touch: true

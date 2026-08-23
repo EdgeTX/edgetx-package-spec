@@ -1,0 +1,282 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/EdgeTX/edgetx-package-spec/main/schema/edgetx-manifest.v1.json",
+  "title": "EdgeTX Package Manifest",
+  "description": "JSON Schema for the EdgeTX edgetx.yml package manifest format (v1). See docs/Manifest.md for the normative specification.",
+  "type": "object",
+  "required": ["package"],
+  "additionalProperties": false,
+  "properties": {
+    "package": {
+      "$ref": "#/$defs/packageBlock"
+    },
+    "libraries": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/contentItem" },
+      "uniqueItems": true
+    },
+    "tools": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/contentItem" },
+      "uniqueItems": true
+    },
+    "widgets": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/contentItem" },
+      "uniqueItems": true
+    },
+    "telemetry": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/contentItem" },
+      "uniqueItems": true
+    },
+    "functions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/contentItem" },
+      "uniqueItems": true
+    },
+    "mixes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/contentItem" },
+      "uniqueItems": true
+    },
+    "sounds": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/contentItem" },
+      "uniqueItems": true
+    },
+    "themes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/contentItem" },
+      "uniqueItems": true
+    }
+  },
+  "$defs": {
+    "packageBlock": {
+      "type": "object",
+      "description": "Top-level package metadata.",
+      "required": ["id", "description"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Canonical package identifier. Must be a URL-like path with at least host/owner/repo (3 slash-separated segments). First segment must contain a dot.",
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]*\\.[a-zA-Z0-9_.-]+(/[a-zA-Z0-9][a-zA-Z0-9_.-]*){2,}$",
+          "minLength": 5,
+          "maxLength": 256,
+          "examples": [
+            "github.com/ExpressLRS/Lua-Scripts",
+            "github.com/offer-shmuely/lua-scripts/log-viewer"
+          ]
+        },
+        "name": {
+          "type": "string",
+          "description": "Human-friendly display name. Falls back to id when absent.",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "description": {
+          "type": "string",
+          "description": "Non-empty human-readable description of the package.",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "authors": {
+          "type": "array",
+          "description": "List of package authors.",
+          "items": { "$ref": "#/$defs/author" }
+        },
+        "urls": {
+          "type": "array",
+          "description": "Project-related URLs (homepage, repository, docs, etc.).",
+          "items": { "$ref": "#/$defs/projectUrl" }
+        },
+        "screenshots": {
+          "type": "array",
+          "description": "Relative paths to screenshot image files.",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "keywords": {
+          "type": "array",
+          "description": "Keywords for package discovery.",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          }
+        },
+        "license": {
+          "type": "string",
+          "description": "SPDX license expression (e.g. 'GPL-3.0-only', 'MIT OR Apache-2.0').",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "source_dir": {
+          "type": "string",
+          "description": "Subdirectory containing source files, relative to the manifest.",
+          "minLength": 1
+        },
+        "min_edgetx_version": {
+          "$ref": "#/$defs/semverOrWildcard",
+          "description": "Minimum EdgeTX firmware version required."
+        },
+        "max_edgetx_version": {
+          "$ref": "#/$defs/semverOrWildcard",
+          "description": "Maximum EdgeTX firmware version supported."
+        },
+        "binary": {
+          "type": "boolean",
+          "description": "Set to true to allow .luac bytecode installation.",
+          "default": false
+        },
+        "capabilities": {
+          "$ref": "#/$defs/capabilities",
+          "description": "Hardware capability requirements for this package."
+        },
+        "variants": {
+          "type": "array",
+          "description": "Alternate manifests for different radio hardware profiles.",
+          "items": { "$ref": "#/$defs/variant" },
+          "minItems": 1
+        }
+      }
+    },
+    "author": {
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "maxLength": 254
+        }
+      }
+    },
+    "projectUrl": {
+      "type": "object",
+      "required": ["name", "url"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "minLength": 1
+        }
+      }
+    },
+    "semverOrWildcard": {
+      "type": "string",
+      "description": "Semantic version string, optionally with a wildcard patch level (e.g. '2.13.x').",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*|x)$"
+    },
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "display": {
+          "$ref": "#/$defs/displayCapabilities"
+        }
+      }
+    },
+    "displayCapabilities": {
+      "type": "object",
+      "description": "Display hardware requirements.",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["bw", "colorlcd"],
+          "description": "Required display type: 'bw' (black-and-white) or 'colorlcd' (color LCD)."
+        },
+        "resolution": {
+          "type": "string",
+          "description": "Required exact display resolution (e.g. '128x64', '480x272').",
+          "pattern": "^[1-9][0-9]*x[1-9][0-9]*$"
+        },
+        "touch": {
+          "type": "boolean",
+          "description": "Set to true if a touchscreen is required."
+        }
+      }
+    },
+    "variant": {
+      "type": "object",
+      "description": "Variant entry in the base manifest's variants list.",
+      "required": ["path"],
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Relative path to the variant manifest file. Must end with .yml or .yaml.",
+          "pattern": "^[^/\\\\][^\\\\]*\\.(yml|yaml)$",
+          "minLength": 5
+        },
+        "capabilities": {
+          "$ref": "#/$defs/capabilities",
+          "description": "Capability filter used to auto-select this variant."
+        }
+      }
+    },
+    "contentItem": {
+      "type": "object",
+      "description": "A single installable content item (tool, widget, library, etc.).",
+      "required": ["name", "path"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Human-readable name for this content item.",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "path": {
+          "type": "string",
+          "description": "Source path relative to the manifest (or source_dir). Also the SD card destination by default.",
+          "minLength": 1
+        },
+        "dest": {
+          "type": "string",
+          "description": "Override SD card destination path. Required when path is '.'. Must be a relative forward-slash path with no '..' segments.",
+          "minLength": 1,
+          "pattern": "^(?!\\.\\.)(?!.*\\/\\.\\.)(?!\\/)[^\\\\]+$"
+        },
+        "depends": {
+          "type": "array",
+          "description": "Names of library entries this content item depends on.",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "exclude": {
+          "type": "array",
+          "description": "Glob patterns for files to skip during copy.",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "dev": {
+          "type": "boolean",
+          "description": "Mark as a development-only dependency. Excluded from pkg install/update unless --dev is passed.",
+          "default": false
+        }
+      }
+    }
+  }
+}

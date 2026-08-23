@@ -1,0 +1,17 @@
+# INVALID: package id is the same as one of its own library dependency ids.
+# A package must not list itself as a dependency.
+# Note: schema-level validation cannot detect this (requires semantic analysis),
+# but conformance test tooling should reject this manifest.
+package:
+  id: github.com/acme/circular-dep
+  description: Package that depends on itself via a library entry
+
+libraries:
+  - name: circular-dep
+    path: SCRIPTS/LIBS/circular-dep
+
+tools:
+  - name: CircularTool
+    path: SCRIPTS/TOOLS/CircularTool
+    depends:
+      - circular-dep

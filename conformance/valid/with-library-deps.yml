@@ -1,0 +1,24 @@
+# Package that declares a library dependency.
+# The library section names the shared library; tools declare depends on it.
+package:
+  id: github.com/ExpressLRS/Lua-Scripts
+  name: ExpressLRS
+  description: ExpressLRS Lua scripts and widgets for EdgeTX
+  license: GPL-3.0-only
+  min_edgetx_version: "2.12.0"
+
+libraries:
+  - name: ELRS
+    path: SCRIPTS/ELRS
+
+tools:
+  - name: ExpressLRS
+    path: SCRIPTS/TOOLS/ExpressLRS
+    depends:
+      - ELRS
+
+widgets:
+  - name: ELRSTelemetry
+    path: WIDGETS/ELRSTelemetry
+    depends:
+      - ELRS
