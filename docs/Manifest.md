@@ -16,7 +16,9 @@ spec_version: "1.0"                                           # optional: EdgeTX
 package:
   id: github.com/ExpressLRS/Lua-Scripts                       # required: canonical URL-like path
   name: "ExpressLRS"                                          # optional: human-friendly display name
+  version: "3.1.2"                                            # optional: package version (semver)
   description: ExpressLRS Lua scripts and widgets for EdgeTX  # required
+  category: telemetry                                         # optional: package category
   authors:                                                    # optional: list of authors
     - name: ExpressLRS Team
       email: info@expresslrs.org
@@ -148,7 +150,9 @@ files:
 |---|---|---|
 | `id` | **yes** | Where the package lives: the git repo URL without the scheme (e.g. `github.com/ExpressLRS/Lua-Scripts`). See [Package id](#package-id) below. |
 | `name` | no | Human-friendly display name (may contain spaces, punctuation, etc.). Falls back to the full `id` if absent. |
+| `version` | no | Package version following semantic versioning (e.g. `"1.2.3"`). Optional but strongly recommended for update detection and dependency resolution. |
 | `description` | **yes** | Non-empty description of the package. |
+| `category` | no | Package category: `telemetry`, `widget`, `tool`, `theme`, `sound`, `utility`, `game`, `library`, or `other`. Helps with discovery and organization. |
 | `authors` | no | Array of `{name, email?}` objects. |
 | `urls` | no | Array of `{name, url}` objects for project links. |
 | `screenshots` | no | Array of relative paths to image files. Files must exist relative to the manifest directory. |

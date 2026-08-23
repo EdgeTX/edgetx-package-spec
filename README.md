@@ -6,8 +6,12 @@ Tooling implementation lives in [`EdgeTX/edgetx-package-tools`](https://github.c
 
 ## Repository contents
 
+- [`docs/GettingStarted.md`](./docs/GettingStarted.md) — quick start guide for package authors
 - [`docs/Manifest.md`](./docs/Manifest.md) — normative reference for the `edgetx.yml` manifest format
 - [`docs/State.md`](./docs/State.md) — normative reference for runtime state files written by package operations
+- [`docs/Implementation.md`](./docs/Implementation.md) — implementation guide with pseudocode for package manager developers
+- [`schema/edgetx-manifest.v1.json`](./schema/edgetx-manifest.v1.json) — JSON Schema for manifest validation
+- [`conformance/`](./conformance/) — test fixtures and validator for spec compliance
 
 ## Scope
 
