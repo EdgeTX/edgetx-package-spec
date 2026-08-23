@@ -11,8 +11,9 @@ Compatibility constraints in this specification are based on **EdgeTX firmware v
 The `edgetx.yml` file describes your package and its contents:
 
 ```yaml
+spec_version: "1.0"                                           # optional: EdgeTX package spec version (absent = pre-1.0)
+
 package:
-  spec_version: "1.0"                                         # required: spec version this manifest targets
   id: github.com/ExpressLRS/Lua-Scripts                       # required: canonical URL-like path
   name: "ExpressLRS"                                          # optional: human-friendly display name
   description: ExpressLRS Lua scripts and widgets for EdgeTX  # required
@@ -134,11 +135,17 @@ files:
 - Cannot be empty.
 - **Required** when `path` is `.`; otherwise the implied SD dest would be the SD root.
 
+### Top-level fields
+
+| Field | Required | Description |
+|---|---|---|
+| `spec_version` | no | Version of the EdgeTX package spec this manifest targets (e.g. `"1.0"`). Absent means the manifest predates the 1.0 release; tooling should warn and apply pre-1.0 compatibility behaviour. See [spec_version](#spec_version) below. |
+| `package` | **yes** | Package metadata block — see [Package fields](#package-fields) below. |
+
 ### Package fields
 
 | Field | Required | Description |
 |---|---|---|
-| `spec_version` | **yes** | Version of the EdgeTX package spec this manifest targets. Must be `"1.0"`. Enables forward compatibility — future spec versions will introduce new values. |
 | `id` | **yes** | Where the package lives: the git repo URL without the scheme (e.g. `github.com/ExpressLRS/Lua-Scripts`). See [Package id](#package-id) below. |
 | `name` | no | Human-friendly display name (may contain spaces, punctuation, etc.). Falls back to the full `id` if absent. |
 | `description` | **yes** | Non-empty description of the package. |
@@ -151,6 +158,20 @@ files:
 | `min_edgetx_version` | no | Minimum EdgeTX version required. |
 | `max_edgetx_version` | no | Maximum EdgeTX version supported. |
 | `binary` | no | Set to `true` to allow `.luac` bytecode installation. |
+
+### spec_version
+
+`spec_version` is a top-level field that identifies which version of the EdgeTX package spec the manifest was written against:
+
+```yaml
+spec_version: "1.0"
+```
+
+- **Absent**: the manifest predates the 1.0 release. Tooling should emit a warning and apply pre-1.0 compatibility behaviour (i.e. process the manifest as if `spec_version` were implicitly `"1.0"`).
+- **Known version** (e.g. `"1.0"`): tooling processes normally.
+- **Unknown future version**: tooling should warn the user that the manifest may use features not yet understood, but may still attempt to process fields it recognises.
+
+This field belongs at the top level — not inside `package:` — because it is metadata *about the file format*, not *about the package itself*.
 
 ### Package id
 
@@ -166,7 +187,7 @@ The CLI accepts GitHub shorthand (`ExpressLRS/Lua-Scripts`) as input — it's ex
 
 ### Validation rules
 
-- **`spec_version`** must be present and equal to `"1.0"`. Tooling must reject manifests declaring an unknown spec version.
+- **`spec_version`** is optional. When present, must match `MAJOR.MINOR` format (e.g. `"1.0"`). Tooling should warn on absence and handle unknown future versions gracefully rather than rejecting them outright.
 - **`id`** must have at least three `/`-separated segments (`host/owner/repo`). The first segment must contain `.` (is a host). Each segment must match `^[a-zA-Z0-9][a-zA-Z0-9_.-]*$`. Extra segments become subpackage path.
 - **`description`** must be present and non-empty.
 - **`license`** is validated as an SPDX expression. Compound expressions like `"MIT OR Apache-2.0"` and `"Apache-2.0 AND MIT"` are accepted.

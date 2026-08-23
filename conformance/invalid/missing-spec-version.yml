@@ -1,5 +1,0 @@
-# INVALID: missing required 'spec_version' field.
-# All manifests must declare which spec version they target.
-package:
-  id: github.com/acme/no-spec-version
-  description: A tool that forgot to declare spec_version

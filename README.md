@@ -124,8 +124,8 @@ These files record installed packages, selected variants, file ownership, compat
 ## Example manifest
 
 ```yaml
+spec_version: "1.0"
 package:
-  spec_version: "1.0"
   id: github.com/ExpressLRS/Lua-Scripts
   name: ExpressLRS
   description: ExpressLRS Lua scripts and widgets for EdgeTX

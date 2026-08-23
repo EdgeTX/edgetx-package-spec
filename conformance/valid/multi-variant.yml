@@ -1,8 +1,8 @@
 # Package with BW and color LCD variants.
 # The base manifest declares available variants and their capability filters.
 # Each variant file lists only its content sections.
+spec_version: "1.0"
 package:
-  spec_version: "1.0"
   id: github.com/yaapu/FrskyTelemetryScript
   name: Yaapu Telemetry Script
   description: Yaapu Telemetry Script and Widget for EdgeTX

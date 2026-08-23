@@ -1,7 +1,7 @@
 # Subpackage: a package that lives inside a multi-package repository.
 # The id includes the subdirectory path after host/owner/repo.
+spec_version: "1.0"
 package:
-  spec_version: "1.0"
   id: github.com/offer-shmuely/lua-scripts/log-viewer
   name: Log Viewer
   description: Flight log viewer subpackage

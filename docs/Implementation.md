@@ -160,10 +160,15 @@ auto_select_best_variant(manifest, radio_capabilities) → variant_path:
 SUPPORTED_SPEC_VERSIONS = ["1.0"]
 
 check_spec_version(manifest_spec_version):
+    if manifest_spec_version is absent:
+        warn("manifest has no spec_version — treating as pre-1.0 legacy manifest")
+        return   # continue with pre-1.0 compatible behaviour
+
     if manifest_spec_version not in SUPPORTED_SPEC_VERSIONS:
-        error(UNSUPPORTED_SPEC_VERSION,
-              "manifest targets spec version " + manifest_spec_version
-              + ", supported: " + SUPPORTED_SPEC_VERSIONS)
+        warn("manifest targets spec version " + manifest_spec_version
+             + " which this tooling does not fully understand (supports: "
+             + SUPPORTED_SPEC_VERSIONS + "); proceeding with best-effort processing")
+        # do not abort — process recognised fields and ignore unrecognised ones
 
 
 check_version_compatibility(min_version, max_version, running_version):
@@ -191,7 +196,7 @@ check_capabilities_compatibility(manifest_capabilities, radio_capabilities):
 
 Version comparison uses semantic versioning rules. The `x` wildcard in `max_edgetx_version` (e.g. `"2.13.x"`) matches any patch level within that minor version.
 
-`check_spec_version` must be called before all other compatibility checks. Tooling should maintain a hard-coded list of spec versions it understands and abort early with a clear error message when a manifest declares an unknown version, so that newer manifests are never silently misinterpreted by older tooling.
+`check_spec_version` must be called before all other compatibility checks. `spec_version` is a top-level field — not inside `package:` — because it describes the file format, not the package itself. Absence means the manifest predates the 1.0 release; tooling warns and applies pre-1.0 compatibility behaviour. An unknown future version should also produce a warning rather than a hard failure, so that older tooling degrades gracefully when encountering manifests written for newer spec versions.
 
 ---
 

@@ -1,7 +1,7 @@
 # Package that declares a library dependency.
 # The library section names the shared library; tools declare depends on it.
+spec_version: "1.0"
 package:
-  spec_version: "1.0"
   id: github.com/ExpressLRS/Lua-Scripts
   name: ExpressLRS
   description: ExpressLRS Lua scripts and widgets for EdgeTX
