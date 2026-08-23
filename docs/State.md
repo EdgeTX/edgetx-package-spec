@@ -1,0 +1,111 @@
+# State Files Reference
+
+This document describes runtime state files written to the SD card by package operations (`pkg install`, `pkg update`, `pkg remove`).
+
+## Overview
+
+State files are maintained under:
+
+- `EDGETX/PKG/state/installed.yml`
+- `EDGETX/PKG/state/files.yml`
+
+No transaction journal is used in this model.
+
+## `installed.yml`
+
+Tracks installed packages, selected variant, constraints, and compatibility status.
+
+```yaml
+schema_version: 1
+packages:
+  - id: github.com/offer-shmuely/lua-scripts/log-viewer
+    version: "1.2.0"
+    variant: "edgetx.color.yml"         # null when no variants
+    installed_at: "2026-08-23T12:40:00Z"
+    source:
+      repo: github.com/offer-shmuely/lua-scripts
+      ref: "v1.2.0"
+      manifest_path: "log-viewer/edgetx.yml"
+    constraints:
+      min_edgetx_version: "2.12.0"
+      max_edgetx_version: "2.13.x"
+      capabilities:
+        display:
+          type: colorlcd
+          resolution: "480x272"
+    status:
+      compatible: true
+      code: "OK"
+      reason: ""
+    last_checked_at: "2026-08-23T12:40:10Z"
+```
+
+### Compatibility status
+
+`status.code` should use stable machine-readable values:
+
+- `OK`
+- `EDGETX_VERSION_TOO_LOW`
+- `EDGETX_VERSION_TOO_HIGH`
+- `CAPABILITY_MISMATCH`
+- `DEPENDENCY_MISSING`
+- `FILE_CONFLICT`
+
+Firmware/CLI should re-check compatibility when firmware version or package set changes.
+
+## `files.yml`
+
+Tracks file ownership and integrity to support safe uninstall/update and conflict checks.
+
+```yaml
+schema_version: 1
+files:
+  - path: "SCRIPTS/TOOLS/LogViewer/main.lua"
+    owner_id: "github.com/offer-shmuely/lua-scripts/log-viewer"
+    owner_version: "1.2.0"
+    owner_variant: "edgetx.color.yml"
+    sha256: "..."
+  - path: "WIDGETS/yaapu/main.lua"
+    owner_id: "github.com/yaapu/FrskyTelemetryScript"
+    owner_version: "3.0.1"
+    owner_variant: "edgetx.color-touch.yml"
+    sha256: "..."
+```
+
+## Shared libraries tracking
+
+When libraries are shared across packages, record both forward and reverse dependency links so unused libraries can be garbage-collected.
+
+```yaml
+schema_version: 1
+libraries:
+  - lib_id: github.com/edgetx/lib-json
+    version: "2.1.3"
+    path: SCRIPTS/LIBS/pkg/edgetx.json/2.1.3
+    requested_by:
+      - package_id: github.com/acme/tool-a
+        package_version: "1.0.0"
+      - package_id: github.com/acme/tool-b
+        package_version: "3.2.0"
+
+package_deps:
+  - package_id: github.com/acme/tool-a
+    package_version: "1.0.0"
+    libs:
+      - lib_id: github.com/edgetx/lib-json
+        constraint: "^2.1.0"
+        resolved_version: "2.1.3"
+```
+
+### Cleanup rule
+
+On package remove/update:
+
+1. Remove that package from each affected library `requested_by` list.
+2. If a library version has no remaining requesters, remove the library files and its state entry.
+
+## Variant behavior
+
+- Persist selected `variant` path per installed package.
+- `pkg update` keeps the current variant unless user explicitly switches.
+- If package becomes incompatible after firmware change, mark status accordingly and do not load package content.
