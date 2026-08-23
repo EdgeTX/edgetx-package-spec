@@ -40,6 +40,9 @@ if existing_package:
     # Delegate to update operation: skip version check to allow reinstall
     return update_package_from_manifest(existing_package, manifest, manifest_dir)
 
+# Initialize selected_variant for all paths
+selected_variant = null
+
 if manifest.has_variants():
     if user_specified_variant:
         selected_variant = find_variant_by_path(manifest, user_variant)
@@ -77,8 +80,10 @@ if compilation_needed:
 
 # BEGIN TRANSACTION for crash-safe install
 staged_file_list = build_staged_file_list(staging_dir)
-new_state = prepare_new_state(manifest.package, selected_variant, include_dev_items, staged_file_list)
-transaction = begin_transaction("install", manifest.package.id, old_state=null, staged_file_list, new_state)
+# For install, old_state is empty (no previous package state to preserve)
+old_state = snapshot_complete_state(installed.yml, files.yml)
+new_state = build_state_with_new_package(old_state, manifest.package, selected_variant, include_dev_items, staged_file_list)
+transaction = begin_transaction("install", manifest.package.id, old_state, staged_file_list, new_state)
 
 # CRITICAL: Detect and remove any existing untracked .luac companions
 # These could shadow newly installed .lua files with stale compiled code
@@ -152,165 +157,165 @@ update_package_from_manifest(old_package, new_manifest, manifest_dir):
     
     # Initialize selected_variant for all paths
     selected_variant = null
-
-if old_package.variant:
-    reuse_variant = old_package.variant
-    if variant_still_exists(new_manifest, reuse_variant):
-        selected_variant = find_variant_by_path(new_manifest, reuse_variant)
+    
+    if old_package.variant:
+        reuse_variant = old_package.variant
+        if variant_still_exists(new_manifest, reuse_variant):
+            selected_variant = find_variant_by_path(new_manifest, reuse_variant)
+            new_manifest = load_variant_manifest(selected_variant, new_manifest, manifest_dir)
+        else:
+            error("variant no longer exists in new version, reinstall to switch")
+    else if new_manifest.has_variants():
+        selected_variant = auto_select_best_variant(new_manifest, radio)
         new_manifest = load_variant_manifest(selected_variant, new_manifest, manifest_dir)
+    
+    check_version_compatibility(
+        new_manifest.min_edgetx_version,
+        new_manifest.max_edgetx_version,
+        running_edgetx_version
+    )
+    check_capabilities_compatibility(new_manifest.capabilities, radio_capabilities)
+    
+    # CRITICAL: Preserve dev mode from the original install
+    # Updates maintain the same mode unless explicitly changed via --dev or --no-dev
+    if command_has_flag("--dev"):
+        include_dev_items = true
+    else if command_has_flag("--no-dev"):
+        include_dev_items = false
     else:
-        error("variant no longer exists in new version, reinstall to switch")
-else if new_manifest.has_variants():
-    selected_variant = auto_select_best_variant(new_manifest, radio)
-    new_manifest = load_variant_manifest(selected_variant, new_manifest, manifest_dir)
-
-check_version_compatibility(
-    new_manifest.min_edgetx_version,
-    new_manifest.max_edgetx_version,
-    running_edgetx_version
-)
-check_capabilities_compatibility(new_manifest.capabilities, radio_capabilities)
-
-# CRITICAL: Preserve dev mode from the original install
-# Updates maintain the same mode unless explicitly changed via --dev or --no-dev
-if command_has_flag("--dev"):
-    include_dev_items = true
-else if command_has_flag("--no-dev"):
-    include_dev_items = false
-else:
-    include_dev_items = (old_package.dev_mode if exists else false)
-
-# Validate local dependencies with the same mode
-validate_local_dependencies(new_manifest, include_dev_items)
-
-# NON-DESTRUCTIVE UPDATE: stage first, then atomically replace
-staging_dir = stage_files_locally(new_manifest, manifest_dir, include_dev_items)
-if compilation_needed:
-    compile_lua_files(staging_dir)
-
-# Verify all files staged successfully and check for conflicts
-# (exclude old_package.id since we're replacing it)
-verify_staging_complete(staging_dir, new_manifest)
-check_conflicts_before_install(new_manifest, old_package.id, sd_root, include_dev_items, staging_dir)
-
-# Load old files and verify integrity before proceeding
-old_files = load_tracked_files_for_package(old_package.id)
-
-# CRITICAL: Verify file integrity before destructive operations
-# Refuse to overwrite user-modified files unless --force is used
-force_update = command_has_flag("--force")
-modified_files_to_backup = []
-
-for each file in old_files:
-    validated_path = normalize_and_validate_path(file.path, sd_root)
-    full_path = sd_root + validated_path
+        include_dev_items = (old_package.dev_mode if exists else false)
     
-    if not file_exists(full_path):
-        continue  # file was deleted by user - warn but continue
+    # Validate local dependencies with the same mode
+    validate_local_dependencies(new_manifest, include_dev_items)
+
+    # NON-DESTRUCTIVE UPDATE: stage first, then atomically replace
+    staging_dir = stage_files_locally(new_manifest, manifest_dir, include_dev_items)
+    if compilation_needed:
+        compile_lua_files(staging_dir)
     
-    if file.sha256 is absent:
-        if not force_update:
-            error(FILE_MODIFIED,
-                  "cannot safely replace file without recorded integrity hash: " + validated_path +
-                  "; use --force to override")
-        else:
-            warn("File missing integrity hash, backing up before update: " + validated_path)
-            modified_files_to_backup.append(validated_path)
-            continue
+    # Verify all files staged successfully and check for conflicts
+    # (exclude old_package.id since we're replacing it)
+    verify_staging_complete(staging_dir, new_manifest)
+    check_conflicts_before_install(new_manifest, old_package.id, sd_root, include_dev_items, staging_dir)
     
-    current_hash = compute_sha256(full_path)
-    if current_hash != file.sha256:
-        if not force_update:
-            error(FILE_MODIFIED,
-                  "installed file was modified locally: " + validated_path +
-                  "; aborting update to protect user changes. " +
-                  "Use --force to override or backup the file and reinstall.")
-        else:
-            warn("File was modified locally, backing up before update: " + validated_path)
-            modified_files_to_backup.append(validated_path)
-
-# BEGIN TRANSACTION for crash-safe update
-old_state = snapshot_package_state(installed.yml, files.yml, old_package.id)
-staged_file_list = build_staged_file_list(staging_dir)
-new_state = prepare_updated_state(old_package, new_manifest, selected_variant, include_dev_items, staged_file_list)
-transaction = begin_transaction("update", old_package.id, old_state, staged_file_list, new_state)
-
-# Backup all existing package files AND any untracked files that will be overwritten
-old_file_paths = [f.path for f in old_files]
-
-# CRITICAL: Collect ALL potential .luac companions before any deletions
-# Must check both old tracked files AND new staged files to avoid orphaned .luac
-luac_companions = []
-
-# From old tracked files: .luac companions of existing .lua files
-for each file in old_files:
-    if file.path.ends_with(".lua"):
-        luac_path = file.path + "c"
-        if not tracked_in_files_yml(luac_path) and not in_list(luac_path, luac_companions):
-            # Check if .luac exists on disk (may be missing if .lua was deleted manually)
-            if file_exists(sd_root + luac_path):
-                luac_companions.append(luac_path)
-
-# From new staged files: .luac companions that may already exist on disk
-for each staged_file in staged_file_list:
-    if staged_file.path.ends_with(".lua"):
-        luac_path = staged_file.path + "c"
-        if not tracked_in_files_yml(luac_path) and not in_list(luac_path, luac_companions):
-            # Check if .luac exists on disk (would shadow new .lua)
-            if file_exists(sd_root + luac_path):
-                luac_companions.append(luac_path)
-
-# Find untracked files that would be overwritten by new staged files
-untracked_overwrites = []
-for each staged_file in staged_file_list:
-    if file_exists(sd_root + staged_file.path):
-        owner = find_owner_in_files_yml(staged_file.path)
-        if not owner or owner.id == old_package.id:
-            # Already in old_file_paths or unowned
-            if not owner:
-                untracked_overwrites.append(staged_file.path)
-
-# Include modified files identified during integrity checks (when --force is used)
-all_paths_to_backup = old_file_paths + modified_files_to_backup + luac_companions + untracked_overwrites
-backup_existing_files(transaction, all_paths_to_backup, sd_root)
-
-# Remove old files
-deleted_directories = []
-for each file in old_files:
-    validated_path = normalize_and_validate_path(file.path, sd_root)
-    full_path = sd_root + validated_path
-    if file_exists(full_path):
-        parent_dir = parent_directory(full_path)
-        delete_file(full_path)
-        # Track parent directories that need fsync after deletions
-        if parent_dir not in deleted_directories:
-            deleted_directories.append(parent_dir)
-
-# Delete all collected .luac companions (already backed up)
-for each luac_path in luac_companions:
-    full_path = sd_root + luac_path
-    if file_exists(full_path):
-        parent_dir = parent_directory(full_path)
-        delete_file(full_path)
-        if parent_dir not in deleted_directories:
-            deleted_directories.append(parent_dir)
-
-# CRITICAL: Ensure deletions are durable (fsync parent directories)
-for each dir in deleted_directories:
-    fsync(dir)
-
-# Install new files
-copy_staged_files_to_sd(staging_dir, sd_root)
-
-# CRITICAL: Ensure all file writes are durable before committing transaction
-fsync_all_staged_files(sd_root, staged_file_list)
-
-# COMMIT transaction before finalizing state
-commit_transaction(transaction)
-
-# Finalize state and clean up transaction
-finalize_transaction(transaction, installed.yml, files.yml)
-
+    # Load old files and verify integrity before proceeding
+    old_files = load_tracked_files_for_package(old_package.id)
+    
+    # CRITICAL: Verify file integrity before destructive operations
+    # Refuse to overwrite user-modified files unless --force is used
+    force_update = command_has_flag("--force")
+    modified_files_to_backup = []
+    
+    for each file in old_files:
+        validated_path = normalize_and_validate_path(file.path, sd_root)
+        full_path = sd_root + validated_path
+        
+        if not file_exists(full_path):
+            continue  # file was deleted by user - warn but continue
+        
+        if file.sha256 is absent:
+            if not force_update:
+                error(FILE_MODIFIED,
+                      "cannot safely replace file without recorded integrity hash: " + validated_path +
+                      "; use --force to override")
+            else:
+                warn("File missing integrity hash, backing up before update: " + validated_path)
+                modified_files_to_backup.append(validated_path)
+                continue
+        
+        current_hash = compute_sha256(full_path)
+        if current_hash != file.sha256:
+            if not force_update:
+                error(FILE_MODIFIED,
+                      "installed file was modified locally: " + validated_path +
+                      "; aborting update to protect user changes. " +
+                      "Use --force to override or backup the file and reinstall.")
+            else:
+                warn("File was modified locally, backing up before update: " + validated_path)
+                modified_files_to_backup.append(validated_path)
+    
+    # BEGIN TRANSACTION for crash-safe update
+    old_state = snapshot_complete_state(installed.yml, files.yml)
+    staged_file_list = build_staged_file_list(staging_dir)
+    new_state = build_state_with_updated_package(old_state, old_package, new_manifest, selected_variant, include_dev_items, staged_file_list)
+    transaction = begin_transaction("update", old_package.id, old_state, staged_file_list, new_state)
+    
+    # Backup all existing package files AND any untracked files that will be overwritten
+    old_file_paths = [f.path for f in old_files]
+    
+    # CRITICAL: Collect ALL potential .luac companions before any deletions
+    # Must check both old tracked files AND new staged files to avoid orphaned .luac
+    luac_companions = []
+    
+    # From old tracked files: .luac companions of existing .lua files
+    for each file in old_files:
+        if file.path.ends_with(".lua"):
+            luac_path = file.path + "c"
+            if not tracked_in_files_yml(luac_path) and not in_list(luac_path, luac_companions):
+                # Check if .luac exists on disk (may be missing if .lua was deleted manually)
+                if file_exists(sd_root + luac_path):
+                    luac_companions.append(luac_path)
+    
+    # From new staged files: .luac companions that may already exist on disk
+    for each staged_file in staged_file_list:
+        if staged_file.path.ends_with(".lua"):
+            luac_path = staged_file.path + "c"
+            if not tracked_in_files_yml(luac_path) and not in_list(luac_path, luac_companions):
+                # Check if .luac exists on disk (would shadow new .lua)
+                if file_exists(sd_root + luac_path):
+                    luac_companions.append(luac_path)
+    
+    # Find untracked files that would be overwritten by new staged files
+    untracked_overwrites = []
+    for each staged_file in staged_file_list:
+        if file_exists(sd_root + staged_file.path):
+            owner = find_owner_in_files_yml(staged_file.path)
+            if not owner or owner.id == old_package.id:
+                # Already in old_file_paths or unowned
+                if not owner:
+                    untracked_overwrites.append(staged_file.path)
+    
+    # Include modified files identified during integrity checks (when --force is used)
+    all_paths_to_backup = old_file_paths + modified_files_to_backup + luac_companions + untracked_overwrites
+    backup_existing_files(transaction, all_paths_to_backup, sd_root)
+    
+    # Remove old files
+    deleted_directories = []
+    for each file in old_files:
+        validated_path = normalize_and_validate_path(file.path, sd_root)
+        full_path = sd_root + validated_path
+        if file_exists(full_path):
+            parent_dir = parent_directory(full_path)
+            delete_file(full_path)
+            # Track parent directories that need fsync after deletions
+            if parent_dir not in deleted_directories:
+                deleted_directories.append(parent_dir)
+    
+    # Delete all collected .luac companions (already backed up)
+    for each luac_path in luac_companions:
+        full_path = sd_root + luac_path
+        if file_exists(full_path):
+            parent_dir = parent_directory(full_path)
+            delete_file(full_path)
+            if parent_dir not in deleted_directories:
+                deleted_directories.append(parent_dir)
+    
+    # CRITICAL: Ensure deletions are durable (fsync parent directories)
+    for each dir in deleted_directories:
+        fsync(dir)
+    
+    # Install new files
+    copy_staged_files_to_sd(staging_dir, sd_root)
+    
+    # CRITICAL: Ensure all file writes are durable before committing transaction
+    fsync_all_staged_files(sd_root, staged_file_list)
+    
+    # COMMIT transaction before finalizing state
+    commit_transaction(transaction)
+    
+    # Finalize state and clean up transaction
+    finalize_transaction(transaction, installed.yml, files.yml)
+    
 cleanup_staging_dir(staging_dir)
 ```
 
@@ -353,8 +358,8 @@ for each file in file_list:
     files_to_delete.append(validated_path)
 
 # BEGIN TRANSACTION for crash-safe removal
-old_state = snapshot_package_state(installed.yml, files.yml, package.id)
-new_state = prepare_removal_state(package.id, modified_files)
+old_state = snapshot_complete_state(installed.yml, files.yml)
+new_state = build_state_without_package(old_state, package.id, modified_files)
 transaction = begin_transaction("remove", package.id, old_state, staged_files=[], new_state)
 
 # CRITICAL: Collect ALL untracked .luac companions before deletion
@@ -518,13 +523,13 @@ Apply these security requirements to:
 ## Version Resolution
 
 ```
-resolve_new_version(old_package) → (new_manifest, new_version):
+resolve_new_version(old_package) → (new_manifest, manifest_dir, new_version):
     fetch_or_update_local_cache(old_package.source.repo)
     latest_ref = resolve_latest_ref(old_package.source.repo)
-    new_manifest = load_manifest(old_package.source.repo, latest_ref,
+    new_manifest, manifest_dir = load_manifest_with_dir(old_package.source.repo, latest_ref,
                                  old_package.source.manifest_path)
     new_version = new_manifest.package.version
-    return (new_manifest, new_version)
+    return (new_manifest, manifest_dir, new_version)
 ```
 
 **Version and update semantics:**
