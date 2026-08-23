@@ -75,6 +75,10 @@ backup_existing_files(transaction, untracked_overwrites, sd_root)
 # Copy staged files to SD card
 copy_staged_files_to_sd(staging_dir, sd_root)
 
+# CRITICAL: Ensure all file writes are durable before committing transaction
+# This ensures recovery can trust committed transactions have complete data
+fsync_all_staged_files(sd_root, staged_file_list)
+
 # COMMIT transaction before finalizing state
 commit_transaction(transaction)
 
@@ -103,8 +107,11 @@ if new_manifest.package.id != old_package.id:
 if old_package.source.repo != resolve_repository(new_manifest):
     error("Repository mismatch: refusing to update from different source")
 
-if new_version == old_version:
+if new_version == old_package.version:
     return status=up_to_date
+
+# Initialize selected_variant for all paths
+selected_variant = null
 
 if old_package.variant:
     reuse_variant = old_package.variant
@@ -171,9 +178,19 @@ staged_file_list = build_staged_file_list(staging_dir)
 new_state = prepare_updated_state(old_package, new_manifest, selected_variant, include_dev_items, staged_file_list)
 transaction = begin_transaction("update", old_package.id, old_state, staged_file_list, new_state)
 
-# Backup all existing package files before destructive operations
+# Backup all existing package files AND any untracked files that will be overwritten
 old_file_paths = [f.path for f in old_files]
-backup_existing_files(transaction, old_file_paths, sd_root)
+# Find untracked files that would be overwritten by new staged files
+untracked_overwrites = []
+for each staged_file in staged_file_list:
+    if file_exists(sd_root + staged_file.path):
+        owner = find_owner_in_files_yml(staged_file.path)
+        if not owner or owner.id == old_package.id:
+            # Already in old_file_paths or unowned
+            if not owner:
+                untracked_overwrites.append(staged_file.path)
+all_paths_to_backup = old_file_paths + untracked_overwrites
+backup_existing_files(transaction, all_paths_to_backup, sd_root)
 
 # Remove old files
 for each file in old_files:
@@ -185,6 +202,9 @@ for each file in old_files:
 
 # Install new files
 copy_staged_files_to_sd(staging_dir, sd_root)
+
+# CRITICAL: Ensure all file writes are durable before committing transaction
+fsync_all_staged_files(sd_root, staged_file_list)
 
 # COMMIT transaction before finalizing state
 commit_transaction(transaction)
@@ -897,14 +917,26 @@ backup_existing_files(transaction, files_to_backup, sd_root):
 
 
 commit_transaction(transaction):
-    # CRITICAL: Mark transaction as committed BEFORE finalizing state
-    # This ensures recovery will complete the operation rather than roll it back
+    # CRITICAL: Only call this after ALL file operations are complete and durable
+    # Committed transactions are assumed to have complete, valid data on disk
+    # Recovery trusts committed=true and will not verify file integrity
     transaction.committed = true
     txn_path = "EDGETX/PKG/state/.txn-" + transaction.id + ".yml"
     write_yaml_atomic(txn_path, transaction)
     
     # Ensure durable write (fsync) before proceeding
     fsync(txn_path)
+
+
+fsync_all_staged_files(sd_root, file_list):
+    # CRITICAL: Ensure all copied files are durably written before commit
+    # This prevents recovery from trusting partial file writes
+    for each file_entry in file_list:
+        file_path = sd_root + file_entry.path
+        if file_exists(file_path):
+            fsync(file_path)
+            # Also fsync parent directory to ensure directory entry is durable
+            fsync(parent_directory(file_path))
 
 
 finalize_transaction(transaction, installed_yml, files_yml):
@@ -981,6 +1013,15 @@ rollback_transaction(transaction, sd_root, installed_yml, files_yml):
     # Restore all backed-up files
     backup_dir = "EDGETX/PKG/state/.backup-" + transaction.id + "/"
     
+    # Remove any partially copied staged files BEFORE restoring backups
+    # (if operation was install/update)
+    if transaction.operation in ["install", "update"]:
+        for each staged_file in transaction.staged_files:
+            dest_path = sd_root + staged_file.path
+            # Only delete if NOT in backup manifest (don't delete what we're about to restore)
+            if file_exists(dest_path) and dest_path not in [sd_root + f.path for f in backup_manifest.files]:
+                delete_file(dest_path)
+    
     if directory_exists(backup_dir):
         backup_manifest = load_yaml(backup_dir + "manifest.yml")
         
@@ -1001,13 +1042,6 @@ rollback_transaction(transaction, sd_root, installed_yml, files_yml):
             if file_exists(backup_path):
                 ensure_parent_dirs(dest_path)
                 copy_file(backup_path, dest_path)
-    
-    # Remove any partially copied staged files (if operation was install/update)
-    if transaction.operation in ["install", "update"]:
-        for each staged_file in transaction.staged_files:
-            dest_path = sd_root + staged_file.path
-            if file_exists(dest_path):
-                delete_file(dest_path)
     
     # Restore old state
     if transaction.old_state:
