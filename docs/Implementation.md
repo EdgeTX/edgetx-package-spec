@@ -28,6 +28,14 @@ resolve_package_ref(pkg_ref) → (manifest, manifest_dir, metadata)
 
 check_spec_version(manifest.spec_version)
 
+# CRITICAL: Check if package is already installed - treat as update/reinstall
+existing_package = try_find_installed_package(manifest.package.id)
+if existing_package:
+    # Package already exists - use update path for safe replacement
+    warn("Package " + manifest.package.id + " is already installed, performing update/reinstall")
+    # Delegate to update operation which safely replaces with proper backups
+    return perform_update_operation(existing_package, manifest, manifest_dir, metadata)
+
 if manifest.has_variants():
     if user_specified_variant:
         selected_variant = find_variant_by_path(manifest, user_variant)
@@ -94,7 +102,7 @@ Pseudocode for `pkg update <package>`:
 
 ```
 old_package = find_installed_package(query)
-resolve_new_version(old_package) → new_manifest, new_version
+resolve_new_version(old_package) → new_manifest, manifest_dir, new_version
 
 check_spec_version(new_manifest.spec_version)
 
@@ -180,6 +188,15 @@ transaction = begin_transaction("update", old_package.id, old_state, staged_file
 
 # Backup all existing package files AND any untracked files that will be overwritten
 old_file_paths = [f.path for f in old_files]
+
+# Collect untracked .luac companions that will be deleted
+luac_companions = []
+for each file in old_files:
+    if file.path.ends_with(".lua"):
+        luac_path = file.path + "c"
+        if file_exists(sd_root + luac_path) and not tracked_in_files_yml(luac_path):
+            luac_companions.append(luac_path)
+
 # Find untracked files that would be overwritten by new staged files
 untracked_overwrites = []
 for each staged_file in staged_file_list:
@@ -189,7 +206,7 @@ for each staged_file in staged_file_list:
             # Already in old_file_paths or unowned
             if not owner:
                 untracked_overwrites.append(staged_file.path)
-all_paths_to_backup = old_file_paths + untracked_overwrites
+all_paths_to_backup = old_file_paths + luac_companions + untracked_overwrites
 backup_existing_files(transaction, all_paths_to_backup, sd_root)
 
 # Remove old files
@@ -267,8 +284,17 @@ old_state = snapshot_package_state(installed.yml, files.yml, package.id)
 new_state = prepare_removal_state(package.id, modified_files)
 transaction = begin_transaction("remove", package.id, old_state, staged_files=[], new_state)
 
+# Collect untracked .luac companions that will be deleted
+luac_companions = []
+for each validated_path in files_to_delete:
+    if validated_path.ends_with(".lua"):
+        luac_path = validated_path + "c"
+        if file_exists(sd_root + luac_path) and not tracked_in_files_yml(luac_path):
+            luac_companions.append(luac_path)
+
 # Backup all files before deletion (in case rollback is needed)
-backup_existing_files(transaction, files_to_delete, sd_root)
+all_paths_to_backup = files_to_delete + luac_companions
+backup_existing_files(transaction, all_paths_to_backup, sd_root)
 
 # Delete files
 deleted_directories = []
