@@ -74,6 +74,15 @@ resolve_new_version(old_package) → new_manifest, new_version
 
 check_spec_version(new_manifest.spec_version)
 
+# CRITICAL: Verify package identity to prevent substitution attacks
+if new_manifest.package.id != old_package.id:
+    error("Package identity mismatch: cannot update " + old_package.id + 
+          " with manifest for " + new_manifest.package.id)
+
+# Verify repository and manifest path match if available
+if old_package.source.repo != resolve_repository(new_manifest):
+    error("Repository mismatch: refusing to update from different source")
+
 if new_version == old_version:
     return status=up_to_date
 
@@ -109,7 +118,8 @@ check_conflicts_before_install(new_manifest, old_package.id, sd_root)
 backup_dir = create_backup_dir()
 old_files = load_tracked_files_for_package(old_package.id)
 for each file in old_files:
-    backup_file(sd_root + file.path, backup_dir)
+    validated_path = normalize_and_validate_path(file.path, sd_root)
+    backup_file(sd_root + validated_path, backup_dir)
 backup_state_files(backup_dir, installed.yml, files.yml)
 
 # Build list of new file destinations for cleanup on rollback
@@ -165,11 +175,23 @@ package = find_installed_package(query)
 file_list = load_tracked_files_for_package(package.id)   # from files.yml
 
 for each file in file_list:
-    delete_file(sd_root + file.path)
-    delete_luac_companion_if_untracked(file.path + "c")
+    # CRITICAL: validate every path loaded from state to prevent path traversal
+    validated_path = normalize_and_validate_path(file.path, sd_root)
+    full_path = sd_root + validated_path
+    
+    # Verify file integrity before deletion to protect user modifications
+    if file.sha256 is present and file_exists(full_path):
+        current_hash = compute_sha256(full_path)
+        if current_hash != file.sha256:
+            warn("File modified by user, skipping: " + validated_path)
+            continue
+    
+    delete_file(full_path)
+    delete_luac_companion_if_untracked(validated_path + "c")
 
 for each directory in file_list (deepest first):
-    remove_empty_tree_bottom_up(directory)
+    validated_dir = normalize_and_validate_path(directory, sd_root)
+    remove_empty_tree_bottom_up(sd_root + validated_dir)
 
 remove_package_from_installed_state(package.id)
 remove_tracked_file_entries(files.yml, package.id)
@@ -239,6 +261,43 @@ find_installed_package(query) → package:
 
 ---
 
+## YAML Parsing Security
+
+**CRITICAL security requirement**: All YAML parsing of untrusted manifests (from remote repositories or user-provided files) must use a safe parser configuration.
+
+```
+parse_yaml(file_path) → document:
+    # REQUIRED security properties:
+    # 1. Reject YAML custom tags (!<tag> syntax) - prevents code execution
+    # 2. Limit document size (e.g., max 1MB for manifests)
+    # 3. Limit alias/anchor expansion depth and count to prevent DoS
+    # 4. Only accept single-document YAML files (reject --- separators)
+    # 5. Use safe loading mode that constructs only standard types
+    
+    content = read_file(file_path)
+    if len(content) > MAX_MANIFEST_SIZE:  # e.g., 1MB
+        error("manifest file too large: " + file_path)
+    
+    # Use language-specific safe YAML loader:
+    # - Python: yaml.safe_load()
+    # - Go: gopkg.in/yaml.v3 with KnownFields(true)
+    # - Rust: serde_yaml with deny_unknown_fields
+    # - C++: yaml-cpp with safe mode
+    document = safe_yaml_parse(content)
+    
+    if document is None or not is_mapping(document):
+        error("invalid YAML: " + file_path)
+    
+    return document
+```
+
+Apply these security requirements to:
+- Base package manifests (`edgetx.yml`)
+- Variant manifests
+- State files (`installed.yml`, `files.yml`)
+
+---
+
 ## Version Resolution
 
 ```
@@ -291,10 +350,52 @@ load_variant_manifest(variant, base_manifest) → merged_manifest:
     if variant_doc.package.description is present:
         merged.package.description = variant_doc.package.description
     
-    # Merge the variant's capability filter for compatibility checking
-    # The variant filter becomes the effective capabilities for this install
+    # CRITICAL: Merge base and variant capabilities as intersection/requirements
+    # Both base and variant capability constraints must be satisfied
     if variant.capabilities is present:
-        merged.package.capabilities = variant.capabilities
+        if merged.package.capabilities is present:
+            # Merge capabilities: both base and variant constraints apply
+            merged.package.capabilities = merge_capability_requirements(
+                merged.package.capabilities,
+                variant.capabilities
+            )
+        else:
+            merged.package.capabilities = variant.capabilities
+    
+    return merged
+```
+
+**Capability merging rules:**
+```
+merge_capability_requirements(base_caps, variant_caps) → merged_caps:
+    # Both base and variant requirements must be satisfied
+    # For conflicting values, the intersection or stricter requirement applies
+    merged = {}
+    
+    for each capability_key in union(base_caps.keys, variant_caps.keys):
+        base_value = base_caps[capability_key]
+        variant_value = variant_caps[capability_key]
+        
+        if base_value exists and variant_value exists:
+            # Both specify the same capability
+            if capability_key == "touch":
+                # Boolean: both must be true, or both must be false/absent
+                if base_value == true or variant_value == true:
+                    merged[capability_key] = true
+            else if capability_key == "display":
+                # Nested object: merge recursively
+                merged[capability_key] = merge_display_requirements(
+                    base_value, variant_value
+                )
+            else:
+                # For other capabilities, both must match or error
+                if base_value != variant_value:
+                    error("Conflicting capability: " + capability_key)
+                merged[capability_key] = base_value
+        else if base_value exists:
+            merged[capability_key] = base_value
+        else:
+            merged[capability_key] = variant_value
     
     return merged
 ```
@@ -460,13 +561,19 @@ normalize_and_validate_path(path, root_dir) → validated_path:
     if normalized contains ".." or starts_with("/"):
         error("path escapes root directory: " + path)
     
-    # 5. For destination paths on disk, canonicalize to detect symlink escapes
-    #    Use realpath/canonicalize to resolve symlinks and verify containment
+    # 5. CRITICAL: For destination paths, verify EVERY path component to prevent
+    #    symlink bypass. Check parent directories before creating children.
+    #    This prevents TOCTOU races and symlinked-parent escapes.
     full_path = join_paths(root_dir, normalized)
-    if path_exists(full_path):
-        canonical = canonicalize_path(full_path)   # Resolves symlinks
-        if not is_within_directory(canonical, canonicalize_path(root_dir)):
-            error("path escapes root via symlink: " + path)
+    
+    # Verify each existing component in the path from root to target
+    current = root_dir
+    for component in split_path_components(normalized):
+        current = join_paths(current, component)
+        if path_exists(current):
+            canonical = canonicalize_path(current)
+            if not is_within_directory(canonical, canonicalize_path(root_dir)):
+                error("path escapes root via symlink: " + path)
     
     return normalized
 
@@ -479,14 +586,15 @@ is_within_directory(path, root) → bool:
 
 **Symlink handling policy:**
 - **Source paths**: Symlinks in package source trees (local git clones) are followed during copy staging
-- **Destination paths**: Before writing to SD card, canonicalize and verify containment to reject symlinks that escape the SD root
-- **Recommendation**: For maximum security on non-FAT filesystems (dev/test environments), use descriptor-based file operations with `O_NOFOLLOW` or equivalent
+- **Destination paths**: Before writing to SD card, verify each path component from root to target to prevent escapes via symlinked parent directories. Check symlinks BEFORE creating child paths, not after.
+- **Recommendation**: For maximum security on non-FAT filesystems (dev/test environments), use descriptor-based file operations with `O_NOFOLLOW` and `openat`-style APIs to traverse directories safely
 
 Apply this validation to:
 - All `path` and `dest` fields in content items before file operations
 - `source_dir` in package metadata
 - Variant manifest `path` values
 - Any user-provided path arguments
+- **CRITICAL**: All paths loaded from state files (`files.yml`) before backup, deletion, or restore operations
 
 ---
 
@@ -516,14 +624,15 @@ check_conflicts_before_install(manifest, current_package_id, sd_root):
               + duplicate_paths)
     
     # Check ownership of each destination file
+    # CRITICAL: Cross-package overwrites are NOT ALLOWED to prevent
+    # inconsistent ownership and deletion risks
     for each dest_path in dest_files:
         owner = find_owner_in_files_yml(dest_path)
         if owner and owner.id != current_package_id:
-            warn("file conflict: " + dest_path
-                 + " is already owned by " + owner.id)
-            if not user_confirmed_overwrite():
-                error(FILE_CONFLICT,
-                      "aborting install due to file conflict on " + dest_path)
+            error(FILE_CONFLICT,
+                  "file conflict: " + dest_path +
+                  " is already owned by " + owner.id +
+                  ". Remove that package first or use a different variant.")
         
         # Check for untracked files that would be overwritten
         if file_exists(sd_root / dest_path) and not owner:

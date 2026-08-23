@@ -9,7 +9,43 @@ State files are maintained under:
 - `EDGETX/PKG/state/installed.yml`
 - `EDGETX/PKG/state/files.yml`
 
-No transaction journal is used in this model.
+### Transaction safety and crash recovery
+
+**CRITICAL implementation requirement**: All operations (install, update, remove) must be crash-safe and support recovery from power loss or interruption.
+
+**Transaction model:**
+
+Each operation must follow an atomic transaction pattern:
+
+1. **Prepare**: Create a transaction record in `EDGETX/PKG/state/.txn-<operation-id>.yml` with:
+   - `operation`: "install", "update", or "remove"
+   - `package_id`: Target package identifier
+   - `timestamp`: Operation start time
+   - `old_state`: Snapshot of current `installed.yml` and `files.yml` entries for this package
+   - `staged_files`: List of files to be copied/removed with source paths and hashes
+   - `new_state`: Target state after operation completes
+
+2. **Execute**: Perform file operations (copy, delete, backup)
+   - For update: backup existing files to `EDGETX/PKG/state/.backup-<package-id>/`
+   - For install/update: copy staged files to destinations
+   - For remove: delete tracked files
+
+3. **Commit**: Write a commit marker to the transaction record (`committed: true`)
+
+4. **Finalize**: Update `installed.yml` and `files.yml`, then delete transaction record and backups
+
+**Recovery on startup:**
+
+On package manager startup, scan for `.txn-*.yml` files:
+- If `committed: false` or absent: rollback (restore old_state, remove staged files)
+- If `committed: true`: complete the operation (apply new_state, clean up backups)
+
+**Backup location:**
+
+Update operations must backup existing files to:
+- `EDGETX/PKG/state/.backup-<package-id>/` 
+- Preserve relative paths within backup directory
+- Include backup manifest with file hashes for integrity verification
 
 ## `installed.yml`
 
@@ -49,6 +85,7 @@ packages:
 - `EDGETX_VERSION_TOO_HIGH`
 - `CAPABILITY_MISMATCH`
 - `DEPENDENCY_MISSING`
+- `DEPENDENCY_INVALID`
 - `FILE_CONFLICT`
 
 Firmware/CLI should re-check compatibility when firmware version or package set changes.
