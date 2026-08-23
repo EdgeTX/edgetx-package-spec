@@ -90,7 +90,6 @@ themes:
 - `exclude` takes glob patterns to skip during copy (e.g., `["*.luac", "presets.txt"]`)
 - `themes` installs to `THEMES/<name>/` on the SD card — typically a directory with `theme.yml`, `logo.png`, and resolution-specific backgrounds. Themes require a color LCD; set `package.capabilities.display` accordingly.
 - `source_dir` is relative to the manifest file; all `path` values are relative to the source root and must use `/` as the separator (never `\`), since they represent paths on a FAT32 SD card
-- **Security**: All paths (`path`, `dest`, `source_dir`, variant `path`) must be safe relative paths with no traversal segments (`.`, `..`), no absolute paths, no backslashes, and no empty segments. After normalization, paths must not escape their designated root directory. Tooling must validate and reject manifests with unsafe paths.
 - `binary: true` disables the default `*.luac` exclusion, allowing compiled bytecode to be installed. `dev build` sets it in the manifest it emits, since a built package ships bytecode
 - `dev: true` marks a content item as a development dependency - it is excluded from `pkg install` and `pkg update` unless `--dev` is passed, but included by default in `dev sync` (use `--no-dev` to exclude)
 
@@ -126,11 +125,10 @@ themes:
 **Validation rules for `dest`**
 
 - Optional; when absent, `dest == path`.
-- Must be a relative path (no leading `/`, forward-slash separator only).
+- Must be a relative path (no leading `/`, forward-slash separator).
 - Cannot be empty.
-- **Must not contain path traversal**: no `.` or `..` segments, no absolute paths, no backslashes.
-- After normalization, the resolved path must not escape the SD card root.
 - **Required** when `path` is `.`; otherwise the implied SD dest would be the SD root.
+- **Implementation requirement**: Tooling must normalize and validate all paths to ensure they do not escape the SD card root directory (e.g., via `..` segments or symbolic links).
 
 ### Top-level fields
 

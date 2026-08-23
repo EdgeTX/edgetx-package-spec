@@ -130,8 +130,9 @@
           "maxLength": 128
         },
         "source_dir": {
-          "$ref": "#/$defs/relativePath",
-          "description": "Subdirectory containing source files, relative to the manifest. Must be a safe relative path."
+          "type": "string",
+          "description": "Subdirectory containing source files, relative to the manifest.",
+          "minLength": 1
         },
         "min_edgetx_version": {
           "$ref": "#/$defs/semverOrWildcard",
@@ -235,8 +236,8 @@
       "properties": {
         "path": {
           "type": "string",
-          "description": "Relative path to the variant manifest file. Must end with .yml or .yaml and be a safe relative path with no traversal.",
-          "pattern": "^(?!/)(?!.*\\\\)(?!\\.\\./?)(?!.*/\\.\\./?)(?!.*/\\.$)[^\\\\]+\\.(yml|yaml)$",
+          "description": "Relative path to the variant manifest file. Must end with .yml or .yaml.",
+          "pattern": "^[^/\\\\][^\\\\]*\\.(yml|yaml)$",
           "minLength": 5
         },
         "capabilities": {
@@ -244,12 +245,6 @@
           "description": "Capability filter used to auto-select this variant."
         }
       }
-    },
-    "relativePath": {
-      "type": "string",
-      "description": "A relative path with security constraints: must use forward slashes, no backslashes, no absolute paths (no leading /), no . or .. path segments, no empty segments, and must not be empty.",
-      "minLength": 1,
-      "pattern": "^(?!/)(?!.*\\\\)(?!\\./?$)(?!\\.\\./?)(?!.*/\\.\\./?)(?!.*/\\.$)[^\\\\]+$"
     },
     "contentItem": {
       "type": "object",
@@ -264,12 +259,14 @@
           "maxLength": 128
         },
         "path": {
-          "$ref": "#/$defs/relativePath",
-          "description": "Source path relative to the manifest (or source_dir). Also the SD card destination by default. Must be a safe relative path with no traversal."
+          "type": "string",
+          "description": "Source path relative to the manifest (or source_dir). Also the SD card destination by default.",
+          "minLength": 1
         },
         "dest": {
-          "$ref": "#/$defs/relativePath",
-          "description": "Override SD card destination path. Required when path is '.'. Must be a relative forward-slash path with no path traversal segments."
+          "type": "string",
+          "description": "Override SD card destination path. Required when path is '.'.",
+          "minLength": 1
         },
         "depends": {
           "type": "array",

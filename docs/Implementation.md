@@ -47,7 +47,9 @@ check_capabilities_compatibility(manifest.capabilities, radio_capabilities)
 for each content_item in manifest.content_items():
     check_file_not_owned_by_other_package(content_item.dest, package.id)
 
-resolved_libs = resolve_library_dependencies(manifest, state)
+# Validate local dependencies: all depends[] entries must reference
+# a library declared in this package's libraries section
+validate_local_dependencies(manifest)
 
 stage_files_locally(manifest, manifest_dir)
 if compilation_needed:
@@ -55,7 +57,7 @@ if compilation_needed:
 
 copy_staged_files_to_sd()
 
-record_installed_state(installed.yml, package, resolved_libs)
+record_installed_state(installed.yml, package)
 record_file_ownership(files.yml, package)
 ```
 
@@ -98,8 +100,6 @@ install_new_package_files(new_manifest)     # see Install Operation
 
 update_installed_state(installed.yml, old_package, new_manifest)
 update_file_ownership(files.yml, old_package.id, new_manifest)
-
-cleanup_unreferenced_libraries(state)
 ```
 
 **Key constraint:** `pkg update` always keeps the currently-installed variant. To switch variants, the user must run `pkg install` explicitly.
@@ -121,16 +121,8 @@ for each file in file_list:
 for each directory in file_list (deepest first):
     remove_empty_tree_bottom_up(directory)
 
-for each lib in package.resolved_libs:
-    remove_package_from_lib_requested_by(lib.id, lib.version, package.id)
-    if lib.requested_by is now empty:
-        delete_library_files(lib.path)
-        remove_lib_from_state(lib.id, lib.version)
-
 remove_package_from_installed_state(package.id)
 remove_tracked_file_entries(files.yml, package.id)
-
-cleanup_unreferenced_libraries(state)
 ```
 
 ---
@@ -345,69 +337,65 @@ Version comparison uses semantic versioning rules. The `x` wildcard in `max_edge
 
 ---
 
-## Library Dependency Resolution
+## Local Library Dependency Validation
 
 ```
-resolve_library_dependencies(package, state) → resolved_libs:
-    resolved_libs = []
-    for each lib_dep in package.dependencies.libraries:
-        installed_versions = find_installed_lib_versions(state, lib_dep.id)
-
-        matching_versions = filter_by_semver_constraint(
-            installed_versions, lib_dep.constraint
-        )
-        if matching_versions is not empty:
-            chosen = max_by_semver(matching_versions)
-        else:
-            chosen = install_library(lib_dep.id, lib_dep.constraint)
-
-        resolved_libs.push({
-            id:               lib_dep.id,
-            constraint:       lib_dep.constraint,
-            resolved_version: chosen.version,
-            path:             chosen.path
-        })
-
-        add_to_lib_requested_by(
-            state, lib_dep.id, chosen.version,
-            package.id, package.version
-        )
-
-    return resolved_libs
-
-
-filter_by_semver_constraint(versions, constraint) → matching_versions:
-    # constraint uses npm-style semver ranges: ^2.1.0, ~2.1.0, >=2.0.0, etc.
-    return [v for v in versions if semver_satisfies(v.version, constraint)]
-
-
-install_library(lib_id, constraint) → installed_lib:
-    # Resolve the best published version of lib_id satisfying constraint,
-    # fetch it, and install to the isolated library path.
-    available = fetch_available_versions(lib_id)
-    candidates = filter_by_semver_constraint(available, constraint)
-    if candidates is empty:
-        error(DEPENDENCY_MISSING,
-              "no version of " + lib_id + " satisfies constraint " + constraint)
-    chosen = max_by_semver(candidates)
-    install_path = "SCRIPTS/LIBS/pkg/" + slug(lib_id) + "/" + chosen.version
-    fetch_and_copy(lib_id, chosen.version, install_path)
-    return { version: chosen.version, path: install_path }
+validate_local_dependencies(manifest):
+    # Verify all depends[] entries reference a library declared in this manifest
+    declared_libs = set([lib.name for lib in manifest.libraries])
+    
+    for each content_item in manifest.content_items():
+        if content_item.depends:
+            for each dep_name in content_item.depends:
+                if dep_name not in declared_libs:
+                    error(DEPENDENCY_MISSING,
+                          content_item.name + " depends on '" + dep_name
+                          + "' but no library with that name is declared in this package")
 ```
+
+Dependencies in the manifest are **local to the package** — the `depends` field references library entries declared in the same manifest's `libraries` section. All declared libraries and dependent content items are installed together as part of the package, with file ownership tracked per package.
 
 ---
 
-## Library Cleanup
+## Path Security and Validation
+
+**Critical implementation requirement**: All path operations must prevent directory traversal attacks and ensure files remain within the SD card root.
 
 ```
-cleanup_unreferenced_libraries(state):
-    for each lib in state.libraries:
-        if lib.requested_by is empty:
-            delete_files(lib.path)
-            remove_from_state(state, lib.id, lib.version)
+normalize_and_validate_path(path, root_dir) → validated_path:
+    # 1. Reject absolute paths
+    if is_absolute(path):
+        error("absolute paths not allowed: " + path)
+    
+    # 2. Reject backslashes (use forward slash separator)
+    if path contains "\\":
+        error("backslash separator not allowed: " + path)
+    
+    # 3. Normalize the path (resolve ., .., empty segments)
+    normalized = normalize_path(path)
+    
+    # 4. Ensure normalized path does not escape root
+    full_path = join_paths(root_dir, normalized)
+    if not is_within_directory(full_path, root_dir):
+        error("path escapes root directory: " + path)
+    
+    return normalized
+
+
+is_within_directory(path, root) → bool:
+    # After normalization, verify that the absolute path is within root
+    abs_path = absolute_path(path)
+    abs_root = absolute_path(root)
+    return abs_path.starts_with(abs_root + "/") or abs_path == abs_root
 ```
 
-This routine is called at the end of both `update` and `remove` to remove library versions that no longer have any dependent packages.
+Apply this validation to:
+- All `path` and `dest` fields in content items before file operations
+- `source_dir` in package metadata
+- Variant manifest `path` values
+- Any user-provided path arguments
+
+This prevents malicious manifests from writing outside the SD card structure (e.g., `../../etc/passwd` or paths with symlinks that escape the root).
 
 ---
 

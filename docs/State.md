@@ -13,7 +13,7 @@ No transaction journal is used in this model.
 
 ## `installed.yml`
 
-Tracks installed packages, selected variant, source/ref, stored constraints, compatibility status, and shared-library dependency metadata.
+Tracks installed packages, selected variant, source/ref, stored constraints, and compatibility status.
 
 ```yaml
 schema_version: 1
@@ -74,45 +74,12 @@ files:
     sha256: "..."
 ```
 
-## Shared libraries tracking (in `installed.yml`)
+## Dependency handling
 
-When libraries are shared across packages, store both:
-
-- reverse refs per installed library version (`requested_by`)
-- per-package resolved dependencies (`package_deps`)
-
-Use short library install paths such as `SCRIPTS/LIBS/pkg/<slug>/<version>/...` so library versions are isolated and removable.
-
-```yaml
-schema_version: 1
-libraries:
-  - lib_id: github.com/edgetx/lib-json
-    version: "2.1.3"
-    path: SCRIPTS/LIBS/pkg/edgetx.json/2.1.3
-    requested_by:
-      - package_id: github.com/acme/tool-a
-        package_version: "1.0.0"
-      - package_id: github.com/acme/tool-b
-        package_version: "3.2.0"
-
-package_deps:
-  - package_id: github.com/acme/tool-a
-    package_version: "1.0.0"
-    libs:
-      - lib_id: github.com/edgetx/lib-json
-        constraint: "^2.1.0"
-        resolved_version: "2.1.3"
-```
-
-### Cleanup rule
-
-On package remove/update:
-
-1. Remove that package from each affected library `requested_by` list.
-2. If a library version has no remaining requesters, remove the library files and its state entry.
+Dependencies declared in the manifest via the `depends` field reference **local libraries within the same package**. All libraries and content items in a package are installed together, and file ownership is tracked at the package level in `files.yml`. When a package is removed, all its files (including its libraries) are removed together.
 
 ## Variant behavior
 
 - Persist selected `variant` path per installed package.
-- `pkg update` keeps the current variant unless user explicitly switches.
+- `pkg update` keeps the current variant unless user explicitly switches via `pkg install`.
 - If package becomes incompatible after firmware change, mark status accordingly so firmware/tooling can warn the user and allow explicit override behavior.
