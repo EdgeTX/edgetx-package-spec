@@ -193,12 +193,21 @@ all_paths_to_backup = old_file_paths + untracked_overwrites
 backup_existing_files(transaction, all_paths_to_backup, sd_root)
 
 # Remove old files
+deleted_directories = []
 for each file in old_files:
     validated_path = normalize_and_validate_path(file.path, sd_root)
     full_path = sd_root + validated_path
     if file_exists(full_path):
+        parent_dir = parent_directory(full_path)
         delete_file(full_path)
         delete_luac_companion_if_untracked(validated_path + "c")
+        # Track parent directories that need fsync after deletions
+        if parent_dir not in deleted_directories:
+            deleted_directories.append(parent_dir)
+
+# CRITICAL: Ensure deletions are durable (fsync parent directories)
+for each dir in deleted_directories:
+    fsync(dir)
 
 # Install new files
 copy_staged_files_to_sd(staging_dir, sd_root)
@@ -262,16 +271,29 @@ transaction = begin_transaction("remove", package.id, old_state, staged_files=[]
 backup_existing_files(transaction, files_to_delete, sd_root)
 
 # Delete files
+deleted_directories = []
 for each validated_path in files_to_delete:
     full_path = sd_root + validated_path
+    parent_dir = parent_directory(full_path)
     delete_file(full_path)
     delete_luac_companion_if_untracked(validated_path + "c")
+    # Track parent directories that need fsync after deletions
+    if parent_dir not in deleted_directories:
+        deleted_directories.append(parent_dir)
 
-# Remove empty directories
+# Remove empty directories (also tracking their parents for fsync)
 directories_to_check = extract_directories_from_files(file_list)
 for each directory in directories_to_check (deepest first):
     validated_dir = normalize_and_validate_path(directory, sd_root)
-    remove_empty_tree_bottom_up(sd_root + validated_dir)
+    if remove_empty_tree_bottom_up(sd_root + validated_dir):
+        # Directory was removed, track its parent for fsync
+        parent_dir = parent_directory(sd_root + validated_dir)
+        if parent_dir not in deleted_directories:
+            deleted_directories.append(parent_dir)
+
+# CRITICAL: Ensure deletions are durable (fsync parent directories)
+for each dir in deleted_directories:
+    fsync(dir)
 
 # COMMIT transaction before finalizing state
 commit_transaction(transaction)
@@ -886,7 +908,7 @@ begin_transaction(operation, package_id, old_state, staged_files, new_state) →
 
 
 backup_existing_files(transaction, files_to_backup, sd_root):
-    # CRITICAL: Complete all backups before any destructive operations
+    # CRITICAL: Complete all backups AND make them durable before any destructive operations
     backup_dir = "EDGETX/PKG/state/.backup-" + transaction.id + "/"
     ensure_directory_exists(backup_dir)
     
@@ -898,6 +920,10 @@ backup_existing_files(transaction, files_to_backup, sd_root):
             dest = backup_dir + validated_path
             ensure_parent_dirs(dest)
             copy_file(source, dest)
+            # CRITICAL: Ensure backup file is durable
+            fsync(dest)
+            fsync(parent_directory(dest))
+            
             hash = compute_sha256(source)
             
             transaction.backup_files.append({
@@ -911,6 +937,9 @@ backup_existing_files(transaction, files_to_backup, sd_root):
         files: transaction.backup_files,
     }
     write_yaml_atomic(backup_dir + "manifest.yml", backup_manifest)
+    
+    # CRITICAL: Ensure backup directory and all contents are durable
+    fsync(backup_dir)
     
     # Update transaction record with backup manifest
     update_transaction_record(transaction)
@@ -1013,15 +1042,8 @@ rollback_transaction(transaction, sd_root, installed_yml, files_yml):
     # Restore all backed-up files
     backup_dir = "EDGETX/PKG/state/.backup-" + transaction.id + "/"
     
-    # Remove any partially copied staged files BEFORE restoring backups
-    # (if operation was install/update)
-    if transaction.operation in ["install", "update"]:
-        for each staged_file in transaction.staged_files:
-            dest_path = sd_root + staged_file.path
-            # Only delete if NOT in backup manifest (don't delete what we're about to restore)
-            if file_exists(dest_path) and dest_path not in [sd_root + f.path for f in backup_manifest.files]:
-                delete_file(dest_path)
-    
+    # Load backup manifest first (or use empty if no backups)
+    backup_manifest = { files: [] }
     if directory_exists(backup_dir):
         backup_manifest = load_yaml(backup_dir + "manifest.yml")
         
@@ -1033,8 +1055,19 @@ rollback_transaction(transaction, sd_root, installed_yml, files_yml):
                 if current_hash != backed_up_file.sha256:
                     error("Backup integrity check failed for " + backed_up_file.path +
                           "; manual recovery required")
-        
-        # Restore backed-up files
+    
+    # Remove any partially copied staged files BEFORE restoring backups
+    # (if operation was install/update)
+    if transaction.operation in ["install", "update"]:
+        backup_paths_set = [sd_root + f.path for f in backup_manifest.files]
+        for each staged_file in transaction.staged_files:
+            dest_path = sd_root + staged_file.path
+            # Only delete if NOT in backup manifest (don't delete what we're about to restore)
+            if file_exists(dest_path) and dest_path not in backup_paths_set:
+                delete_file(dest_path)
+    
+    # Restore backed-up files
+    if directory_exists(backup_dir):
         for each backed_up_file in backup_manifest.files:
             backup_path = backup_dir + backed_up_file.path
             dest_path = sd_root + backed_up_file.path
