@@ -4,6 +4,8 @@ The `edgetx.yml` file describes a package and its contents. It is authored by th
 
 For the runtime state files written to the SD card by `pkg install`/`update`/`remove`, see [State Files Reference](./State.md).
 
+Compatibility constraints in this specification are based on **EdgeTX firmware version only** (`min_edgetx_version`, `max_edgetx_version`) plus declared hardware capabilities. This spec does not define a separate firmware API version field.
+
 ## Manifest format
 
 The `edgetx.yml` file describes your package and its contents:
@@ -168,6 +170,7 @@ The CLI accepts GitHub shorthand (`ExpressLRS/Lua-Scripts`) as input — it's ex
 - **`authors[].email`** is validated as an RFC 5321 email address when provided.
 - **`urls[].url`** is validated as a well-formed URL.
 - **`screenshots`** entries must point to files that exist relative to the manifest directory.
+- **`min_edgetx_version` / `max_edgetx_version`** constrain compatibility using EdgeTX firmware version only.
 
 ## Radio capabilities
 
@@ -184,6 +187,8 @@ package:
 ```
 
 All fields inside `display` are optional — omit any to mean "any". For example, `type: colorlcd` alone matches any color LCD radio regardless of resolution.
+
+Capability matching is an AND-match on all fields that are declared by the package/variant filter.
 
 When installing a package, the CLI reads the radio's board info from the SD card and checks it against the catalog to determine display type, resolution, and other capabilities. If the package's filters don't match, install is blocked unless explicitly overridden.
 
@@ -233,6 +238,8 @@ When `variants` is present, the CLI auto-selects the best matching variant based
 2. Detects radio capabilities from the SD card (board → catalog lookup)
 3. Matches capabilities against each variant's filter (most specific match wins)
 4. Loads the selected variant's content
+
+Deterministic selection: if multiple variants match with equal specificity, tooling should pick the first matching variant in manifest order.
 
 **Manual variant selection:** two equivalent forms override auto-selection.
 

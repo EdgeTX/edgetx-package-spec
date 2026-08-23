@@ -1,6 +1,8 @@
 # EdgeTX Package Spec
 
-This repository defines the EdgeTX package specification used by package authors and package tooling.
+This repository is the canonical EdgeTX package specification repository, used by package authors and tooling maintainers.
+
+Tooling implementation lives in [`EdgeTX/edgetx-package-tools`](https://github.com/EdgeTX/edgetx-package-tools). This repository defines the specification that tooling must implement.
 
 ## Repository contents
 
