@@ -1,0 +1,6 @@
+# Invalid: version doesn't follow semver
+spec_version: "1.0"
+package:
+  id: github.com/acme/bad-version
+  version: "v1.2.3"  # should not have 'v' prefix
+  description: Package with invalid version format

@@ -6,8 +6,12 @@ Tooling implementation lives in [`EdgeTX/edgetx-package-tools`](https://github.c
 
 ## Repository contents
 
+- [`docs/GettingStarted.md`](./docs/GettingStarted.md) — quick start guide for package authors
 - [`docs/Manifest.md`](./docs/Manifest.md) — normative reference for the `edgetx.yml` manifest format
 - [`docs/State.md`](./docs/State.md) — normative reference for runtime state files written by package operations
+- [`docs/Implementation.md`](./docs/Implementation.md) — implementation guide with pseudocode for package manager developers
+- [`schema/edgetx-manifest.v1.json`](./schema/edgetx-manifest.v1.json) — JSON Schema for manifest validation
+- [`conformance/`](./conformance/) — test fixtures and validator for spec compliance
 
 ## Scope
 
@@ -24,6 +28,7 @@ This specification defines:
   - `sounds`
   - `themes`
 - source and destination path rules
+- local content dependencies (tools/widgets depending on libraries within the same package)
 - hardware capability constraints
 - package variants
 - subpackage layouts, including flat-file fallback layouts
@@ -36,11 +41,11 @@ An EdgeTX package shall be described by an `edgetx.yml` manifest stored in the p
 - package identity
 - source locations for package content
 - SD card installation destinations
-- content dependencies
+- local content dependencies (tools/widgets depending on libraries within the same package)
 - compatibility with radio hardware
 - available package variants
 
-This repository also defines the SD card state files used to track installed packages, selected variants, file ownership, compatibility status, and dependency relationships.
+This repository also defines the SD card state files used to track installed packages, selected variants, file ownership, and compatibility status.
 
 ## Core concepts
 
@@ -124,6 +129,7 @@ These files record installed packages, selected variants, file ownership, compat
 ## Example manifest
 
 ```yaml
+spec_version: "1.0"
 package:
   id: github.com/ExpressLRS/Lua-Scripts
   name: ExpressLRS

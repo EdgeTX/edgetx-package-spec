@@ -1,0 +1,52 @@
+# Package with all optional fields populated
+spec_version: "1.0"
+package:
+  id: github.com/comprehensive/full-example
+  name: Comprehensive Package Example
+  version: "1.0.0-beta.1+build.123"
+  description: A package demonstrating all available manifest fields
+  category: utility
+  authors:
+    - name: John Doe
+      email: john@example.com
+    - name: Jane Smith
+  urls:
+    - name: Homepage
+      url: https://example.com
+    - name: Documentation
+      url: https://docs.example.com
+    - name: Issues
+      url: https://github.com/comprehensive/full-example/issues
+  screenshots:
+    - screenshots/main.png
+    - screenshots/settings.png
+  keywords: ["example", "comprehensive", "test", "demo"]
+  license: Apache-2.0 OR MIT
+  source_dir: src
+  min_edgetx_version: "2.11.0"
+  max_edgetx_version: "2.14.x"
+  binary: true
+  capabilities:
+    display:
+      type: colorlcd
+      resolution: 480x272
+      touch: true
+
+libraries:
+  - name: UtilLib
+    path: SCRIPTS/LIBS/UtilLib
+
+tools:
+  - name: MainTool
+    path: SCRIPTS/TOOLS/MainTool
+    depends:
+      - UtilLib
+    exclude:
+      - "*.md"
+      - "test/*"
+
+widgets:
+  - name: MainWidget
+    path: WIDGETS/MainWidget
+    depends:
+      - UtilLib

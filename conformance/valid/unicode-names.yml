@@ -1,0 +1,12 @@
+# Package with unicode characters in strings
+spec_version: "1.0"
+package:
+  id: github.com/international/unicode-test
+  name: "Тест Юникод 测试 🚁"
+  description: "Testing unicode support in package names: français, español, 中文, 日本語"
+  keywords: ["测试", "тест", "test"]
+  license: MIT
+
+tools:
+  - name: "Tool-测试"
+    path: SCRIPTS/TOOLS/TestTool

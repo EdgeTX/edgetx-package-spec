@@ -1,0 +1,6 @@
+# INVALID: id does not match the required pattern.
+# The id must have at least host/owner/repo (3 segments) with the first containing a dot.
+# This id has only two segments.
+package:
+  id: acme/simple-tool
+  description: Tool with invalid id format

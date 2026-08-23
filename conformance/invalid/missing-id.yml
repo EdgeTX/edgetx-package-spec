@@ -1,0 +1,3 @@
+# INVALID: missing required 'id' field.
+package:
+  description: A tool without an id

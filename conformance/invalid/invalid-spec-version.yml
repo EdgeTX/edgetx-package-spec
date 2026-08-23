@@ -1,0 +1,6 @@
+# INVALID: spec_version is present but does not match the required MAJOR.MINOR format.
+# Valid examples: "1.0", "2.1". This value does not match the pattern.
+spec_version: "v1.0"
+package:
+  id: github.com/acme/bad-spec-ver
+  description: A tool with a malformed spec_version value

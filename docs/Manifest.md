@@ -11,10 +11,14 @@ Compatibility constraints in this specification are based on **EdgeTX firmware v
 The `edgetx.yml` file describes your package and its contents:
 
 ```yaml
+spec_version: "1.0"                                           # optional: EdgeTX package spec version (absent = pre-1.0)
+
 package:
   id: github.com/ExpressLRS/Lua-Scripts                       # required: canonical URL-like path
   name: "ExpressLRS"                                          # optional: human-friendly display name
+  version: "3.1.2"                                            # optional: package version (semver)
   description: ExpressLRS Lua scripts and widgets for EdgeTX  # required
+  category: telemetry                                         # optional: package category
   authors:                                                    # optional: list of authors
     - name: ExpressLRS Team
       email: info@expresslrs.org
@@ -93,8 +97,8 @@ themes:
 
 `path:` tells the CLI where to **read** files from. `dest:` tells it where to **write** them on the SD card. When `dest` is absent, the write location defaults to `path`.
 
-- **Source root(s)** = `manifest_dir` by default, or `manifest_dir/<source_dir>` for each entry when `package.source_dir` is declared. Unchanged.
-- **Source of a content item** = first source root where `path` resolves, joined with `path`.
+- **Source root resolution**: When `package.source_dir` is declared, tooling first tries `manifest_dir/<source_dir>/`, then falls back to `manifest_dir/` if the path doesn't exist in source_dir. When `package.source_dir` is absent, tooling uses `manifest_dir/` directly.
+- **Source of a content item** = first existing path from: `<source_root>/<path>`, then `<manifest_dir>/<path>`.
 - **SD destination of a content item** = `<sd_root>/<dest if set, else path>`.
 - `dest` does **not** inherit `source_dir` — it is always relative to the SD card root.
 
@@ -118,20 +122,20 @@ themes:
 # sd dest: <sd_root>/THEMES/Bionic_Theme
 ```
 
-**Rename on install:**
-```yaml
-files:
-  - name: launcher
-    path: loader.lua                    # source: manifest_dir/loader.lua
-    dest: SCRIPTS/TOOLS/Foo.lua         # SD destination renamed
-```
-
 **Validation rules for `dest`**
 
 - Optional; when absent, `dest == path`.
-- Must be a relative path (no leading `/`, forward-slash separator, no `..` segments).
+- Must be a relative path (no leading `/`, forward-slash separator).
 - Cannot be empty.
 - **Required** when `path` is `.`; otherwise the implied SD dest would be the SD root.
+- **Implementation requirement**: Tooling must normalize and validate all paths to ensure they do not escape the SD card root directory (e.g., via `..` segments or symbolic links).
+
+### Top-level fields
+
+| Field | Required | Description |
+|---|---|---|
+| `spec_version` | no | Version of the EdgeTX package spec this manifest targets (e.g. `"1.0"`). Absent means the manifest predates the 1.0 release; tooling should warn and apply pre-1.0 compatibility behaviour. See [spec_version](#spec_version) below. |
+| `package` | **yes** | Package metadata block — see [Package fields](#package-fields) below. |
 
 ### Package fields
 
@@ -139,16 +143,32 @@ files:
 |---|---|---|
 | `id` | **yes** | Where the package lives: the git repo URL without the scheme (e.g. `github.com/ExpressLRS/Lua-Scripts`). See [Package id](#package-id) below. |
 | `name` | no | Human-friendly display name (may contain spaces, punctuation, etc.). Falls back to the full `id` if absent. |
+| `version` | no | Package version following semantic versioning (e.g. `"1.2.3"`). Optional but strongly recommended for update detection and dependency resolution. |
 | `description` | **yes** | Non-empty description of the package. |
+| `category` | no | Package category: `telemetry`, `widget`, `tool`, `theme`, `sound`, `utility`, `game`, `library`, or `other`. Helps with discovery and organization. |
 | `authors` | no | Array of `{name, email?}` objects. |
 | `urls` | no | Array of `{name, url}` objects for project links. |
 | `screenshots` | no | Array of relative paths to image files. Files must exist relative to the manifest directory. |
 | `keywords` | no | Array of keyword strings for discovery. |
 | `license` | no | SPDX license expression. Supports compound expressions (e.g., `"MIT OR Apache-2.0"`). |
 | `source_dir` | no | Subdirectory containing source files, relative to the manifest. |
-| `min_edgetx_version` | no | Minimum EdgeTX version required. |
-| `max_edgetx_version` | no | Maximum EdgeTX version supported. |
+| `min_edgetx_version` | no | Minimum EdgeTX version required. Must be a complete semantic version (e.g., `"2.12.0"`), no wildcards. |
+| `max_edgetx_version` | no | Maximum EdgeTX version supported. May use `x` as a wildcard patch level (e.g., `"2.13.x"` matches any 2.13.*). |
 | `binary` | no | Set to `true` to allow `.luac` bytecode installation. |
+
+### spec_version
+
+`spec_version` is a top-level field that identifies which version of the EdgeTX package spec the manifest was written against:
+
+```yaml
+spec_version: "1.0"
+```
+
+- **Absent**: the manifest predates the 1.0 release. Tooling should emit a warning and apply pre-1.0 compatibility behaviour (i.e. process the manifest as if `spec_version` were implicitly `"1.0"`).
+- **Known version** (e.g. `"1.0"`): tooling processes normally.
+- **Unknown future version**: tooling should warn the user that the manifest may use features not yet understood, but may still attempt to process fields it recognises.
+
+This field belongs at the top level — not inside `package:` — because it is metadata *about the file format*, not *about the package itself*.
 
 ### Package id
 
@@ -164,13 +184,24 @@ The CLI accepts GitHub shorthand (`ExpressLRS/Lua-Scripts`) as input — it's ex
 
 ### Validation rules
 
+- **`spec_version`** is optional. When present, must match `MAJOR.MINOR` format (e.g. `"1.0"`). Tooling should warn on absence and handle unknown future versions gracefully rather than rejecting them outright.
 - **`id`** must have at least three `/`-separated segments (`host/owner/repo`). The first segment must contain `.` (is a host). Each segment must match `^[a-zA-Z0-9][a-zA-Z0-9_.-]*$`. Extra segments become subpackage path.
+  - **Base manifest requirement**: A manifest loaded as the root package entry point (base manifest) **must** contain `package.id`. Omission of `id` is only valid when a file is loaded through a base manifest's `variants[].path` reference.
 - **`description`** must be present and non-empty.
+  - **Base manifest requirement**: A manifest loaded as the root package entry point (base manifest) **must** contain a non-empty `package.description`. Variant manifests may omit `description` to inherit from base, or provide their own to override.
 - **`license`** is validated as an SPDX expression. Compound expressions like `"MIT OR Apache-2.0"` and `"Apache-2.0 AND MIT"` are accepted.
 - **`authors[].email`** is validated as an RFC 5321 email address when provided.
 - **`urls[].url`** is validated as a well-formed URL.
 - **`screenshots`** entries must point to files that exist relative to the manifest directory.
-- **`min_edgetx_version` / `max_edgetx_version`** constrain compatibility using EdgeTX firmware version only.
+- **`min_edgetx_version`** must be a complete semantic version (e.g., `"2.12.0"`). Wildcards are not allowed in minimum version.
+- **`max_edgetx_version`** may use `x` as a wildcard patch level (e.g., `"2.13.x"` matches any version 2.13.*). The wildcard form is only supported in the maximum version.
+- **Version range validity**: When both are present, `min_edgetx_version` must be less than or equal to `max_edgetx_version` after wildcard expansion. Tooling should reject inverted ranges.
+
+**Schema validation limitations**: The current JSON schema (`schema/edgetx-manifest.v1.json`) does not enforce the context-specific requirements for base vs variant manifests. The schema validates both base and variant manifests with the same structure and cannot distinguish whether `id` and `description` are required based on how the manifest is loaded. Implementations **must** perform these context-aware checks at runtime after loading:
+- When loading a manifest as a root package (via CLI package ref, direct file path, or repository root `edgetx.yml`), verify that `package.id` and `package.description` are present and non-empty.
+- When loading a manifest through a `variants[].path` reference from a base manifest, `id` and `description` are optional (inherited from base if omitted).
+
+This distinction cannot be encoded in a single JSON Schema without external context. Future schema revisions may provide separate schemas for base (`baseManifest`) and variant (`variantManifest`) contexts, but current tooling must implement these checks programmatically.
 
 ## Radio capabilities
 
@@ -183,12 +214,15 @@ package:
     display:
       type: colorlcd          # "bw" or "colorlcd"
       resolution: 480x272     # optional: exact resolution (e.g., "128x64", "480x272")
-      touch: true             # optional: requires touchscreen
+      touch: true             # optional: true requires touchscreen, false requires non-touch
 ```
 
 All fields inside `display` are optional — omit any to mean "any". For example, `type: colorlcd` alone matches any color LCD radio regardless of resolution.
 
-Capability matching is an AND-match on all fields that are declared by the package/variant filter.
+Capability matching is an AND-match on all fields that are declared by the package/variant filter. For `touch`, the behavior is:
+- `touch: true` — requires a touchscreen device
+- `touch: false` — requires a non-touchscreen device
+- `touch` omitted — matches both touchscreen and non-touchscreen devices
 
 When installing a package, the CLI reads the radio's board info from the SD card and checks it against the catalog to determine display type, resolution, and other capabilities. If the package's filters don't match, install is blocked unless explicitly overridden.
 
@@ -221,10 +255,10 @@ package:
           touch: true
 ```
 
-**Variant files don't declare their own `id`** — they inherit from the base manifest. A variant file only lists its content (tools, widgets, etc.):
+**Variant files don't declare their own `id`** — they inherit from the base manifest. A variant file only lists its content (tools, widgets, etc.) and optionally overrides the `description`. **Implementation requirement**: When loading a manifest via a `variants[].path` reference, the `package.id` field is optional (inherited from base). When loading a manifest as a root package entry point, `package.id` and `package.description` are **required**.
 
 ```yaml
-# edgetx.color.yml — no `id` needed
+# edgetx.color.yml — no `id` needed, inherits from base
 package:
   description: Yaapu Telemetry (Color LCD)
 widgets:
@@ -232,7 +266,9 @@ widgets:
     path: WIDGETS/yaapu
 ```
 
-When `variants` is present, the CLI auto-selects the best matching variant based on the connected radio:
+**Variant nesting is not allowed**: A variant manifest must not itself declare a `variants` section. Variant resolution is exactly one level deep.
+
+When `variants` is present in the base manifest, the CLI auto-selects the best matching variant based on the connected radio:
 
 1. Loads the base manifest and sees `variants`
 2. Detects radio capabilities from the SD card (board → catalog lookup)
@@ -248,7 +284,7 @@ pkg install yaapu/FrskyTelemetryScript --path edgetx.bw128x64.yml
 pkg install yaapu/FrskyTelemetryScript::edgetx.bw128x64.yml
 ```
 
-**Update behavior:** `pkg update` always keeps the currently-installed variant. To switch variants, use `pkg install` explicitly (with or without the override).
+**Update behavior:** `pkg update` always keeps the currently-installed variant unless the user explicitly runs `pkg install` to switch.
 
 Variant resolution is one level deep — a variant manifest should not itself declare further variants.
 
