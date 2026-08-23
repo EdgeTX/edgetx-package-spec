@@ -13,7 +13,7 @@ No transaction journal is used in this model.
 
 ## `installed.yml`
 
-Tracks installed packages, selected variant, constraints, and compatibility status.
+Tracks installed packages, selected variant, source/ref, stored constraints, compatibility status, and shared-library dependency metadata.
 
 ```yaml
 schema_version: 1
@@ -53,6 +53,8 @@ packages:
 
 Firmware/CLI should re-check compatibility when firmware version or package set changes.
 
+Compatibility is evaluated against EdgeTX firmware version (`min_edgetx_version`, optional `max_edgetx_version`) and capabilities only.
+
 ## `files.yml`
 
 Tracks file ownership and integrity to support safe uninstall/update and conflict checks.
@@ -72,9 +74,14 @@ files:
     sha256: "..."
 ```
 
-## Shared libraries tracking
+## Shared libraries tracking (in `installed.yml`)
 
-When libraries are shared across packages, record both forward and reverse dependency links so unused libraries can be garbage-collected.
+When libraries are shared across packages, store both:
+
+- reverse refs per installed library version (`requested_by`)
+- per-package resolved dependencies (`package_deps`)
+
+Use short library install paths such as `SCRIPTS/LIBS/pkg/<slug>/<version>/...` so library versions are isolated and removable.
 
 ```yaml
 schema_version: 1
@@ -108,4 +115,4 @@ On package remove/update:
 
 - Persist selected `variant` path per installed package.
 - `pkg update` keeps the current variant unless user explicitly switches.
-- If package becomes incompatible after firmware change, mark status accordingly and do not load package content.
+- If package becomes incompatible after firmware change, mark status accordingly so firmware/tooling can warn the user and allow explicit override behavior.
