@@ -21,10 +21,10 @@ Each operation must follow an atomic transaction pattern:
    - `operation`: "install", "update", or "remove"
    - `package_id`: Target package identifier
    - `timestamp`: Operation start time
-   - `old_state`: Snapshot of current `installed.yml` and `files.yml` entries for this package
+   - `old_state`: **Complete snapshot** of current `installed.yml` and `files.yml` before modification (all packages, all files)
    - `backup_files`: **CRITICAL**: Full backup of all files to be deleted or overwritten, stored in `.backup-<operation-id>/` with relative paths and hashes preserved
    - `staged_files`: List of files to be copied/removed with source paths and hashes
-   - `new_state`: Target state after operation completes
+   - `new_state`: **Complete snapshot** of target `installed.yml` and `files.yml` after operation completes (all packages, all files)
 
 2. **Execute**: Perform file operations (copy, delete, backup)
    - **For all operations**: Before any destructive change (deletion, overwrite), back up the existing file bytes and hash to `.backup-<operation-id>/`

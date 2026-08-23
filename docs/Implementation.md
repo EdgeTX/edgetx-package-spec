@@ -37,16 +37,16 @@ existing_package = try_find_installed_package(manifest.package.id)
 if existing_package:
     # Package already exists - use update path for safe replacement
     warn("Package " + manifest.package.id + " is already installed, performing update/reinstall")
-    # Delegate to update operation which safely replaces with proper backups
-    return perform_update_operation(existing_package, manifest, manifest_dir, metadata)
+    # Delegate to update operation: skip version check to allow reinstall
+    return update_package_from_manifest(existing_package, manifest, manifest_dir)
 
 if manifest.has_variants():
     if user_specified_variant:
         selected_variant = find_variant_by_path(manifest, user_variant)
-        manifest = load_variant_manifest(selected_variant, manifest)
+        manifest = load_variant_manifest(selected_variant, manifest, manifest_dir)
     else if radio_capabilities_available:
         selected_variant = auto_select_best_variant(manifest, radio)
-        manifest = load_variant_manifest(selected_variant, manifest)
+        manifest = load_variant_manifest(selected_variant, manifest, manifest_dir)
     else:
         error("could not detect radio, must specify --path")
 
@@ -69,7 +69,7 @@ validate_local_dependencies(manifest, include_dev_items)
 staging_dir = stage_files_locally(manifest, manifest_dir, include_dev_items)
 
 # Check conflicts using the staged file inventory
-check_conflicts_before_install(manifest, package.id, sd_root, include_dev_items, staging_dir)
+check_conflicts_before_install(manifest, manifest.package.id, sd_root, include_dev_items, staging_dir)
 
 # Compile if needed (modifies staging_dir in place)
 if compilation_needed:
@@ -77,12 +77,30 @@ if compilation_needed:
 
 # BEGIN TRANSACTION for crash-safe install
 staged_file_list = build_staged_file_list(staging_dir)
-new_state = prepare_new_state(package, selected_variant, include_dev_items, staged_file_list)
-transaction = begin_transaction("install", package.id, old_state=null, staged_file_list, new_state)
+new_state = prepare_new_state(manifest.package, selected_variant, include_dev_items, staged_file_list)
+transaction = begin_transaction("install", manifest.package.id, old_state=null, staged_file_list, new_state)
+
+# CRITICAL: Detect and remove any existing untracked .luac companions
+# These could shadow newly installed .lua files with stale compiled code
+luac_to_remove = []
+for each staged_file in staged_file_list:
+    if staged_file.path.ends_with(".lua"):
+        luac_path = staged_file.path + "c"
+        # Only remove if untracked (tracked .luac is replaced by package install)
+        if not tracked_in_files_yml(luac_path) and file_exists(sd_root + luac_path):
+            luac_to_remove.append(luac_path)
 
 # Backup any untracked files that will be overwritten (already confirmed with user)
 untracked_overwrites = find_untracked_files_to_overwrite(staged_file_list, files.yml, sd_root)
-backup_existing_files(transaction, untracked_overwrites, sd_root)
+all_files_to_backup = untracked_overwrites + luac_to_remove
+backup_existing_files(transaction, all_files_to_backup, sd_root)
+
+# Delete untracked .luac companions before installing new .lua files
+for each luac_path in luac_to_remove:
+    full_path = sd_root + luac_path
+    if file_exists(full_path):
+        delete_file(full_path)
+        fsync(parent_directory(full_path))
 
 # Copy staged files to SD card
 copy_staged_files_to_sd(staging_dir, sd_root)
@@ -105,40 +123,46 @@ finalize_transaction(transaction, installed.yml, files.yml)
 Pseudocode for `pkg update <package>`:
 
 ```
-old_package = find_installed_package(query)
-resolve_new_version(old_package) → new_manifest, manifest_dir, new_version
+update_package_from_query(query):
+    old_package = find_installed_package(query)
+    resolve_new_version(old_package) → new_manifest, manifest_dir, new_version
+    return update_package_from_manifest(old_package, new_manifest, manifest_dir)
 
-check_spec_version(new_manifest.spec_version)
-
-# CRITICAL: Validate base manifest requirements (see Manifest.md context-specific validation)
-# Base manifests (loaded from root source) MUST have id and description
-validate_base_manifest_fields(new_manifest)  # Ensure package.id and package.description are present
-
-# CRITICAL: Verify package identity to prevent substitution attacks
-if new_manifest.package.id != old_package.id:
-    error("Package identity mismatch: cannot update " + old_package.id + 
-          " with manifest for " + new_manifest.package.id)
-
-# Verify repository and manifest path match if available
-if old_package.source.repo != resolve_repository(new_manifest):
-    error("Repository mismatch: refusing to update from different source")
-
-if new_version == old_package.version:
-    return status=up_to_date
-
-# Initialize selected_variant for all paths
-selected_variant = null
+update_package_from_manifest(old_package, new_manifest, manifest_dir):
+    # This helper is used by both update and reinstall paths
+    
+    check_spec_version(new_manifest.spec_version)
+    
+    # CRITICAL: Validate base manifest requirements (see Manifest.md context-specific validation)
+    # Base manifests (loaded from root source) MUST have id and description
+    validate_base_manifest_fields(new_manifest)  # Ensure package.id and package.description are present
+    
+    # CRITICAL: Verify package identity to prevent substitution attacks
+    if new_manifest.package.id != old_package.id:
+        error("Package identity mismatch: cannot update " + old_package.id + 
+              " with manifest for " + new_manifest.package.id)
+    
+    # Verify repository and manifest path match if available
+    if old_package.source.repo != resolve_repository(new_manifest):
+        error("Repository mismatch: refusing to update from different source")
+    
+    new_version = new_manifest.package.version
+    if new_version == old_package.version and not command_has_flag("--force"):
+        return status=up_to_date
+    
+    # Initialize selected_variant for all paths
+    selected_variant = null
 
 if old_package.variant:
     reuse_variant = old_package.variant
     if variant_still_exists(new_manifest, reuse_variant):
         selected_variant = find_variant_by_path(new_manifest, reuse_variant)
-        new_manifest = load_variant_manifest(selected_variant, new_manifest)
+        new_manifest = load_variant_manifest(selected_variant, new_manifest, manifest_dir)
     else:
         error("variant no longer exists in new version, reinstall to switch")
 else if new_manifest.has_variants():
     selected_variant = auto_select_best_variant(new_manifest, radio)
-    new_manifest = load_variant_manifest(selected_variant, new_manifest)
+    new_manifest = load_variant_manifest(selected_variant, new_manifest, manifest_dir)
 
 check_version_compatibility(
     new_manifest.min_edgetx_version,
@@ -202,13 +226,27 @@ transaction = begin_transaction("update", old_package.id, old_state, staged_file
 # Backup all existing package files AND any untracked files that will be overwritten
 old_file_paths = [f.path for f in old_files]
 
-# Collect untracked .luac companions that will be deleted
+# CRITICAL: Collect ALL potential .luac companions before any deletions
+# Must check both old tracked files AND new staged files to avoid orphaned .luac
 luac_companions = []
+
+# From old tracked files: .luac companions of existing .lua files
 for each file in old_files:
     if file.path.ends_with(".lua"):
         luac_path = file.path + "c"
-        if file_exists(sd_root + luac_path) and not tracked_in_files_yml(luac_path):
-            luac_companions.append(luac_path)
+        if not tracked_in_files_yml(luac_path) and not in_list(luac_path, luac_companions):
+            # Check if .luac exists on disk (may be missing if .lua was deleted manually)
+            if file_exists(sd_root + luac_path):
+                luac_companions.append(luac_path)
+
+# From new staged files: .luac companions that may already exist on disk
+for each staged_file in staged_file_list:
+    if staged_file.path.ends_with(".lua"):
+        luac_path = staged_file.path + "c"
+        if not tracked_in_files_yml(luac_path) and not in_list(luac_path, luac_companions):
+            # Check if .luac exists on disk (would shadow new .lua)
+            if file_exists(sd_root + luac_path):
+                luac_companions.append(luac_path)
 
 # Find untracked files that would be overwritten by new staged files
 untracked_overwrites = []
@@ -230,8 +268,16 @@ for each file in old_files:
     if file_exists(full_path):
         parent_dir = parent_directory(full_path)
         delete_file(full_path)
-        delete_luac_companion_if_untracked(validated_path + "c")
         # Track parent directories that need fsync after deletions
+        if parent_dir not in deleted_directories:
+            deleted_directories.append(parent_dir)
+
+# Delete all collected .luac companions (already backed up)
+for each luac_path in luac_companions:
+    full_path = sd_root + luac_path
+    if file_exists(full_path):
+        parent_dir = parent_directory(full_path)
+        delete_file(full_path)
         if parent_dir not in deleted_directories:
             deleted_directories.append(parent_dir)
 
@@ -297,13 +343,16 @@ old_state = snapshot_package_state(installed.yml, files.yml, package.id)
 new_state = prepare_removal_state(package.id, modified_files)
 transaction = begin_transaction("remove", package.id, old_state, staged_files=[], new_state)
 
-# Collect untracked .luac companions that will be deleted
+# CRITICAL: Collect ALL untracked .luac companions before deletion
+# Check every .lua path from file_list (not just files_to_delete) to catch orphaned .luac
 luac_companions = []
-for each validated_path in files_to_delete:
-    if validated_path.ends_with(".lua"):
-        luac_path = validated_path + "c"
-        if file_exists(sd_root + luac_path) and not tracked_in_files_yml(luac_path):
-            luac_companions.append(luac_path)
+for each file in file_list:
+    if file.path.ends_with(".lua"):
+        luac_path = file.path + "c"
+        if not tracked_in_files_yml(luac_path) and not in_list(luac_path, luac_companions):
+            # Include if exists on disk, even if the .lua was manually deleted
+            if file_exists(sd_root + luac_path):
+                luac_companions.append(luac_path)
 
 # Backup all files before deletion (in case rollback is needed)
 all_paths_to_backup = files_to_delete + luac_companions
@@ -493,8 +542,13 @@ variant_still_exists(manifest, path) → bool:
     return false
 
 
-load_variant_manifest(variant, base_manifest) → merged_manifest:
-    variant_doc = parse_yaml(variant.path)
+load_variant_manifest(variant, base_manifest, manifest_dir) → merged_manifest:
+    # CRITICAL: Resolve variant.path relative to base manifest directory
+    # This ensures variants are contained within the package and prevents path traversal
+    variant_full_path = resolve_path_relative_to(manifest_dir, variant.path)
+    validate_path_is_within(variant_full_path, manifest_dir)
+    
+    variant_doc = parse_yaml(variant_full_path)
     
     # Variant files must not declare their own variants
     if variant_doc.package.variants is present:
@@ -607,7 +661,7 @@ merge_display_requirements(base_display, variant_display) → merged_display:
 ## Variant Selection Algorithm
 
 ```
-auto_select_best_variant(manifest, radio_capabilities) → variant_path:
+auto_select_best_variant(manifest, radio_capabilities) → variant:
     matching_variants = []
     for each variant in manifest.variants:
         if capabilities_match(variant.capabilities, radio_capabilities):
@@ -621,10 +675,10 @@ auto_select_best_variant(manifest, radio_capabilities) → variant_path:
     candidates = filter(matching_variants, specificity == max_specificity)
 
     if len(candidates) == 1:
-        return candidates[0].variant.path
+        return candidates[0].variant
 
     # Tie-break: first matching variant in manifest declaration order
-    return first_in_manifest_order(candidates).variant.path
+    return first_in_manifest_order(candidates).variant
 ```
 
 `count_specified_fields` counts non-null fields in `capabilities` (recursively) so that a variant declaring `{type, resolution, touch}` scores higher than one declaring only `{type}`.
@@ -1035,7 +1089,8 @@ write_yaml_atomic(file_path, data):
 
 
 apply_state_snapshot_atomically(installed_yml, files_yml, new_state):
-    # CRITICAL: Both files must be updated atomically to maintain consistency
+    # CRITICAL: Update both state files as an atomic generation
+    # new_state contains COMPLETE installed.yml and files.yml content (all packages/files)
     # Write both to temp files first, then rename both
     temp_installed = installed_yml + ".tmp"
     temp_files = files_yml + ".tmp"
@@ -1045,6 +1100,8 @@ apply_state_snapshot_atomically(installed_yml, files_yml, new_state):
     write_yaml(temp_files, new_state.files)
     fsync(temp_files)
     
+    # Sequential renames create a state generation
+    # Recovery relies on transaction record (committed flag) to determine valid generation
     atomic_rename(temp_installed, installed_yml)
     atomic_rename(temp_files, files_yml)
     fsync(parent_directory(installed_yml))
@@ -1104,6 +1161,8 @@ rollback_transaction(transaction, sd_root, installed_yml, files_yml):
             # Only delete if NOT in backup manifest (don't delete what we're about to restore)
             if file_exists(dest_path) and dest_path not in backup_paths_set:
                 delete_file(dest_path)
+                # CRITICAL: Ensure deletion is durable before restoring backups
+                fsync(parent_directory(dest_path))
     
     # Restore backed-up files
     if directory_exists(backup_dir):
@@ -1114,13 +1173,17 @@ rollback_transaction(transaction, sd_root, installed_yml, files_yml):
             if file_exists(backup_path):
                 ensure_parent_dirs(dest_path)
                 copy_file(backup_path, dest_path)
+                # CRITICAL: Ensure restored file is durable before continuing
+                fsync(dest_path)
+                fsync(parent_directory(dest_path))
     
     # Restore old state
     if transaction.old_state:
         apply_state_snapshot_atomically(installed_yml, files_yml, transaction.old_state)
     
-    # Clean up transaction and backups
+    # Clean up transaction and backups - must be durable to prevent re-recovery
     cleanup_transaction(transaction)
+    fsync(state_directory())  # Ensure cleanup is durable
 ```
 
 **Durable writes**: All transaction record writes and state file writes must use `fsync` (or platform equivalent) to ensure durability before proceeding to the next phase.
