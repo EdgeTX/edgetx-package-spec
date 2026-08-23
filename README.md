@@ -28,6 +28,7 @@ This specification defines:
   - `sounds`
   - `themes`
 - source and destination path rules
+- local content dependencies (tools/widgets depending on libraries within the same package)
 - hardware capability constraints
 - package variants
 - subpackage layouts, including flat-file fallback layouts
@@ -40,11 +41,11 @@ An EdgeTX package shall be described by an `edgetx.yml` manifest stored in the p
 - package identity
 - source locations for package content
 - SD card installation destinations
-- content dependencies
+- local content dependencies (tools/widgets depending on libraries within the same package)
 - compatibility with radio hardware
 - available package variants
 
-This repository also defines the SD card state files used to track installed packages, selected variants, file ownership, compatibility status, and dependency relationships.
+This repository also defines the SD card state files used to track installed packages, selected variants, file ownership, and compatibility status.
 
 ## Core concepts
 

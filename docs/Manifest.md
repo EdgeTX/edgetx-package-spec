@@ -97,8 +97,8 @@ themes:
 
 `path:` tells the CLI where to **read** files from. `dest:` tells it where to **write** them on the SD card. When `dest` is absent, the write location defaults to `path`.
 
-- **Source root(s)** = `manifest_dir` by default, or `manifest_dir/<source_dir>` for each entry when `package.source_dir` is declared. Unchanged.
-- **Source of a content item** = first source root where `path` resolves, joined with `path`.
+- **Source root resolution**: When `package.source_dir` is declared, tooling first tries `manifest_dir/<source_dir>/`, then falls back to `manifest_dir/` if the path doesn't exist in source_dir. When `package.source_dir` is absent, tooling uses `manifest_dir/` directly.
+- **Source of a content item** = first existing path from: `<source_root>/<path>`, then `<manifest_dir>/<path>`.
 - **SD destination of a content item** = `<sd_root>/<dest if set, else path>`.
 - `dest` does **not** inherit `source_dir` — it is always relative to the SD card root.
 

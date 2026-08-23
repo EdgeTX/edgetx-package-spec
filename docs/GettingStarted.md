@@ -168,6 +168,30 @@ libraries:
     dev: true                     # Won't be installed by default
 ```
 
+### Local Library Dependencies
+
+If your tools or widgets depend on shared library code within the same package, declare the libraries and reference them:
+
+```yaml
+libraries:
+  - name: CommonLib
+    path: SCRIPTS/LIBS/CommonLib
+
+tools:
+  - name: ToolA
+    path: SCRIPTS/TOOLS/ToolA
+    depends:
+      - CommonLib                 # References library name above
+
+widgets:
+  - name: WidgetB
+    path: WIDGETS/WidgetB
+    depends:
+      - CommonLib                 # Same library used by both
+```
+
+**Important**: Dependencies are **local to the package** — the `depends` field references library entries declared in the same manifest. All libraries and content items are installed together as part of the package.
+
 ## Validation
 
 ### Local Validation
