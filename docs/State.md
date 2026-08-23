@@ -97,6 +97,7 @@ packages:
 - `DEPENDENCY_MISSING`
 - `DEPENDENCY_INVALID`
 - `FILE_CONFLICT`
+- `FILE_MODIFIED`
 
 Firmware/CLI should re-check compatibility when firmware version or package set changes.
 

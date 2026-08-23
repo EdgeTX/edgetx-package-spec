@@ -63,12 +63,23 @@ check_conflicts_before_install(manifest, package.id, sd_root, include_dev_items,
 if compilation_needed:
     compile_lua_files(staging_dir)
 
-# Copy from staging to SD card
+# BEGIN TRANSACTION for crash-safe install
+staged_file_list = build_staged_file_list(staging_dir)
+new_state = prepare_new_state(package, selected_variant, include_dev_items, staged_file_list)
+transaction = begin_transaction("install", package.id, old_state=null, staged_file_list, new_state)
+
+# Backup any untracked files that will be overwritten (already confirmed with user)
+untracked_overwrites = find_untracked_files_to_overwrite(staged_file_list, files.yml, sd_root)
+backup_existing_files(transaction, untracked_overwrites, sd_root)
+
+# Copy staged files to SD card
 copy_staged_files_to_sd(staging_dir, sd_root)
 
-# Record state with dev mode
-record_installed_state(installed.yml, package, include_dev_items)
-record_file_ownership(files.yml, package, staging_dir)
+# COMMIT transaction before finalizing state
+commit_transaction(transaction)
+
+# Finalize state and clean up transaction
+finalize_transaction(transaction, installed.yml, files.yml)
 ```
 
 ---
@@ -128,57 +139,67 @@ if compilation_needed:
 # Verify all files staged successfully and check for conflicts
 # (exclude old_package.id since we're replacing it)
 verify_staging_complete(staging_dir, new_manifest)
-check_conflicts_before_install(new_manifest, old_package.id, sd_root, include_dev_items)
+check_conflicts_before_install(new_manifest, old_package.id, sd_root, include_dev_items, staging_dir)
 
-# Create backup of old package state for potential rollback
-backup_dir = create_backup_dir()
+# Load old files and verify integrity before proceeding
 old_files = load_tracked_files_for_package(old_package.id)
+
+# CRITICAL: Verify file integrity before destructive operations
+# Refuse to overwrite user-modified files
 for each file in old_files:
     validated_path = normalize_and_validate_path(file.path, sd_root)
-    backup_file(sd_root + validated_path, backup_dir)
-backup_state_files(backup_dir, installed.yml, files.yml)
+    full_path = sd_root + validated_path
+    
+    if not file_exists(full_path):
+        continue  # file was deleted by user - warn but continue
+    
+    if file.sha256 is absent:
+        error(FILE_MODIFIED,
+              "cannot safely replace file without recorded integrity hash: " + validated_path +
+              "; use --force to override")
+    
+    current_hash = compute_sha256(full_path)
+    if current_hash != file.sha256:
+        error(FILE_MODIFIED,
+              "installed file was modified locally: " + validated_path +
+              "; aborting update to protect user changes. " +
+              "Backup the file, remove the package, and reinstall.")
 
-# Build list of new file destinations for cleanup on rollback
-new_file_list = build_destination_file_list(staging_dir, new_manifest)
+# BEGIN TRANSACTION for crash-safe update
+old_state = snapshot_package_state(installed.yml, files.yml, old_package.id)
+staged_file_list = build_staged_file_list(staging_dir)
+new_state = prepare_updated_state(old_package, new_manifest, selected_variant, include_dev_items, staged_file_list)
+transaction = begin_transaction("update", old_package.id, old_state, staged_file_list, new_state)
 
-try:
-    # Remove old files
-    remove_old_package_files(old_package)
-    
-    # Install new files
-    copy_staged_files_to_sd(staging_dir, sd_root)
-    
-    # Update state files atomically
-    update_installed_state_atomic(installed.yml, old_package, new_manifest)
-    update_file_ownership_atomic(files.yml, old_package.id, new_manifest)
-    
-    # Commit successful - remove backup
-    remove_backup_dir(backup_dir)
-    
-catch error:
-    # Rollback on failure: remove newly created files, restore old files and state
-    warn("update failed: " + error + ", rolling back")
-    for each new_file in new_file_list:
-        if file_exists(sd_root / new_file) and new_file not in old_files:
-            delete_file(sd_root / new_file)
-    restore_from_backup(backup_dir, sd_root)
-    restore_state_files(backup_dir, installed.yml, files.yml)
-    throw error
-finally:
-    cleanup_staging_dir(staging_dir)
+# Backup all existing package files before destructive operations
+old_file_paths = [f.path for f in old_files]
+backup_existing_files(transaction, old_file_paths, sd_root)
+
+# Remove old files
+for each file in old_files:
+    validated_path = normalize_and_validate_path(file.path, sd_root)
+    full_path = sd_root + validated_path
+    if file_exists(full_path):
+        delete_file(full_path)
+        delete_luac_companion_if_untracked(validated_path + "c")
+
+# Install new files
+copy_staged_files_to_sd(staging_dir, sd_root)
+
+# COMMIT transaction before finalizing state
+commit_transaction(transaction)
+
+# Finalize state and clean up transaction
+finalize_transaction(transaction, installed.yml, files.yml)
+
+cleanup_staging_dir(staging_dir)
 ```
 
 **Key constraints:**
 - `pkg update` always keeps the currently-installed variant. To switch variants, the user must run `pkg install` explicitly.
 - Updates are non-destructive: new files are staged and verified before any SD card modifications.
-- If an update fails, the old package is restored from backup.
-- State files should be written atomically (write to temp file, then rename).
-
-**Interrupted operation recovery:**
-- If tooling crashes during update, the backup directory remains in place
-- On next startup, tooling should detect incomplete updates and offer to:
-  1. Complete the update (if new files are intact), or
-  2. Roll back to the backup (if update was interrupted)
+- File integrity is verified before any destructive operations - user modifications prevent the update.
+- Transaction protocol ensures crash recovery: incomplete updates roll back automatically on next startup.
 
 ---
 
@@ -190,27 +211,58 @@ Pseudocode for `pkg remove <package>`:
 package = find_installed_package(query)
 file_list = load_tracked_files_for_package(package.id)   # from files.yml
 
+# Verify file integrity and determine which files can be deleted
+files_to_delete = []
+modified_files = []
+
 for each file in file_list:
     # CRITICAL: validate every path loaded from state to prevent path traversal
     validated_path = normalize_and_validate_path(file.path, sd_root)
     full_path = sd_root + validated_path
     
+    if not file_exists(full_path):
+        continue  # already deleted
+    
     # Verify file integrity before deletion to protect user modifications
-    if file.sha256 is present and file_exists(full_path):
+    if file.sha256 is present:
         current_hash = compute_sha256(full_path)
         if current_hash != file.sha256:
             warn("File modified by user, skipping: " + validated_path)
+            modified_files.append(validated_path)
             continue
     
+    files_to_delete.append(validated_path)
+
+# BEGIN TRANSACTION for crash-safe removal
+old_state = snapshot_package_state(installed.yml, files.yml, package.id)
+new_state = prepare_removal_state(package.id, modified_files)
+transaction = begin_transaction("remove", package.id, old_state, staged_files=[], new_state)
+
+# Backup all files before deletion (in case rollback is needed)
+backup_existing_files(transaction, files_to_delete, sd_root)
+
+# Delete files
+for each validated_path in files_to_delete:
+    full_path = sd_root + validated_path
     delete_file(full_path)
     delete_luac_companion_if_untracked(validated_path + "c")
 
-for each directory in file_list (deepest first):
+# Remove empty directories
+directories_to_check = extract_directories_from_files(file_list)
+for each directory in directories_to_check (deepest first):
     validated_dir = normalize_and_validate_path(directory, sd_root)
     remove_empty_tree_bottom_up(sd_root + validated_dir)
 
-remove_package_from_installed_state(package.id)
-remove_tracked_file_entries(files.yml, package.id)
+# COMMIT transaction before finalizing state
+commit_transaction(transaction)
+
+# Finalize state and clean up transaction
+finalize_transaction(transaction, installed.yml, files.yml)
+
+# If any modified files were skipped, inform the user
+if modified_files is not empty:
+    warn("Package removed, but " + len(modified_files) + 
+         " modified files were preserved: " + join(modified_files, ", "))
 ```
 
 ---
@@ -780,15 +832,207 @@ remove_empty_tree_bottom_up(directory):
 
 ---
 
+## Transaction Execution and Crash Recovery
+
+**CRITICAL implementation requirement**: All operations (install, update, remove) must follow the transaction protocol defined in [State.md](./State.md) to ensure crash safety and atomicity.
+
+### Transaction Protocol
+
+Every operation must execute atomically using the following transaction protocol:
+
+```
+begin_transaction(operation, package_id, old_state, staged_files, new_state) → transaction:
+    # Generate unique transaction ID
+    txn_id = generate_transaction_id()  # e.g., timestamp + random
+    
+    # Create transaction record
+    transaction = {
+        id: txn_id,
+        operation: operation,              # "install", "update", or "remove"
+        package_id: package_id,
+        timestamp: now_utc(),
+        old_state: old_state,             # snapshot from installed.yml and files.yml
+        backup_files: [],                 # to be populated during backup phase
+        staged_files: staged_files,       # files to copy/remove with hashes
+        new_state: new_state,             # target state after completion
+        committed: false,                 # commit marker - starts false
+    }
+    
+    # Write transaction record atomically
+    txn_path = "EDGETX/PKG/state/.txn-" + txn_id + ".yml"
+    write_yaml_atomic(txn_path, transaction)
+    
+    return transaction
+
+
+backup_existing_files(transaction, files_to_backup, sd_root):
+    # CRITICAL: Complete all backups before any destructive operations
+    backup_dir = "EDGETX/PKG/state/.backup-" + transaction.id + "/"
+    ensure_directory_exists(backup_dir)
+    
+    for each file_path in files_to_backup:
+        validated_path = normalize_and_validate_path(file_path, sd_root)
+        source = sd_root + validated_path
+        
+        if file_exists(source):
+            dest = backup_dir + validated_path
+            ensure_parent_dirs(dest)
+            copy_file(source, dest)
+            hash = compute_sha256(source)
+            
+            transaction.backup_files.append({
+                path: validated_path,
+                sha256: hash,
+            })
+    
+    # Write backup manifest with hashes for integrity verification
+    backup_manifest = {
+        transaction_id: transaction.id,
+        files: transaction.backup_files,
+    }
+    write_yaml_atomic(backup_dir + "manifest.yml", backup_manifest)
+    
+    # Update transaction record with backup manifest
+    update_transaction_record(transaction)
+
+
+commit_transaction(transaction):
+    # CRITICAL: Mark transaction as committed BEFORE finalizing state
+    # This ensures recovery will complete the operation rather than roll it back
+    transaction.committed = true
+    txn_path = "EDGETX/PKG/state/.txn-" + transaction.id + ".yml"
+    write_yaml_atomic(txn_path, transaction)
+    
+    # Ensure durable write (fsync) before proceeding
+    fsync(txn_path)
+
+
+finalize_transaction(transaction, installed_yml, files_yml):
+    # Apply new state atomically to installed.yml and files.yml
+    apply_state_snapshot_atomically(installed_yml, files_yml, transaction.new_state)
+    
+    # Clean up transaction record and backups
+    cleanup_transaction(transaction)
+
+
+cleanup_transaction(transaction):
+    # Remove transaction record and backup directory
+    txn_path = "EDGETX/PKG/state/.txn-" + transaction.id + ".yml"
+    backup_dir = "EDGETX/PKG/state/.backup-" + transaction.id + "/"
+    
+    delete_file(txn_path)
+    if directory_exists(backup_dir):
+        remove_directory_recursive(backup_dir)
+
+
+write_yaml_atomic(file_path, data):
+    # Write to temp file, then atomic rename
+    temp_path = file_path + ".tmp"
+    write_yaml(temp_path, data)
+    fsync(temp_path)
+    atomic_rename(temp_path, file_path)
+    fsync(parent_directory(file_path))
+
+
+apply_state_snapshot_atomically(installed_yml, files_yml, new_state):
+    # CRITICAL: Both files must be updated atomically to maintain consistency
+    # Write both to temp files first, then rename both
+    temp_installed = installed_yml + ".tmp"
+    temp_files = files_yml + ".tmp"
+    
+    write_yaml(temp_installed, new_state.installed)
+    fsync(temp_installed)
+    write_yaml(temp_files, new_state.files)
+    fsync(temp_files)
+    
+    atomic_rename(temp_installed, installed_yml)
+    atomic_rename(temp_files, files_yml)
+    fsync(parent_directory(installed_yml))
+```
+
+### Transaction Recovery on Startup
+
+On package manager startup, before any operations, check for incomplete transactions:
+
+```
+recover_incomplete_transactions():
+    txn_files = list_files("EDGETX/PKG/state/.txn-*.yml")
+    
+    for each txn_file in txn_files:
+        try:
+            transaction = load_yaml(txn_file)
+        catch parse_error:
+            error("Transaction record corrupted: " + txn_file +
+                  "; manual recovery required. Do not proceed.")
+        
+        if transaction.committed == true:
+            # Transaction was committed - complete the operation
+            log("Completing interrupted " + transaction.operation + 
+                " for " + transaction.package_id)
+            finalize_transaction(transaction, installed_yml, files_yml)
+        else:
+            # Transaction not committed - roll back all changes
+            log("Rolling back interrupted " + transaction.operation + 
+                " for " + transaction.package_id)
+            rollback_transaction(transaction, sd_root, installed_yml, files_yml)
+
+
+rollback_transaction(transaction, sd_root, installed_yml, files_yml):
+    # Restore all backed-up files
+    backup_dir = "EDGETX/PKG/state/.backup-" + transaction.id + "/"
+    
+    if directory_exists(backup_dir):
+        backup_manifest = load_yaml(backup_dir + "manifest.yml")
+        
+        # Verify backup integrity before restoring
+        for each backed_up_file in backup_manifest.files:
+            backup_path = backup_dir + backed_up_file.path
+            if file_exists(backup_path):
+                current_hash = compute_sha256(backup_path)
+                if current_hash != backed_up_file.sha256:
+                    error("Backup integrity check failed for " + backed_up_file.path +
+                          "; manual recovery required")
+        
+        # Restore backed-up files
+        for each backed_up_file in backup_manifest.files:
+            backup_path = backup_dir + backed_up_file.path
+            dest_path = sd_root + backed_up_file.path
+            
+            if file_exists(backup_path):
+                ensure_parent_dirs(dest_path)
+                copy_file(backup_path, dest_path)
+    
+    # Remove any partially copied staged files (if operation was install/update)
+    if transaction.operation in ["install", "update"]:
+        for each staged_file in transaction.staged_files:
+            dest_path = sd_root + staged_file.path
+            if file_exists(dest_path):
+                delete_file(dest_path)
+    
+    # Restore old state
+    if transaction.old_state:
+        apply_state_snapshot_atomically(installed_yml, files_yml, transaction.old_state)
+    
+    # Clean up transaction and backups
+    cleanup_transaction(transaction)
+```
+
+**Durable writes**: All transaction record writes and state file writes must use `fsync` (or platform equivalent) to ensure durability before proceeding to the next phase.
+
+**Idempotency**: Recovery operations must be idempotent - multiple recovery attempts for the same transaction must produce the same result.
+
+---
+
 ## State Recording
 
 ```
-record_installed_state(installed_yml, package, resolved_libs):
+record_installed_state(installed_yml, package, selected_variant_path, dev_mode):
     entry = {
         id:           package.id,
         version:      package.version,
         variant:      selected_variant_path or null,
         installed_at: now_utc(),
+        dev_mode:     dev_mode,
         source: {
             repo:          package.source.repo,
             ref:           package.source.ref,
@@ -823,11 +1067,12 @@ record_file_ownership(files_yml, package, staged_files):
     write_yaml(files_yml, state)
 
 
-update_installed_state(installed_yml, old_package, new_manifest):
+update_installed_state(installed_yml, old_package, new_manifest, selected_variant_path, dev_mode):
     # Replace the existing entry for old_package.id in-place.
     entry = find_entry(installed_yml, old_package.id)
     entry.version      = new_manifest.package.version
     entry.variant      = selected_variant_path or null
+    entry.dev_mode     = dev_mode
     entry.source.ref   = new_manifest.source.ref
     entry.constraints  = extract_constraints(new_manifest)
     entry.status       = { compatible: true, code: "OK", reason: "" }
