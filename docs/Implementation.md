@@ -450,19 +450,20 @@ merge_display_requirements(base_display, variant_display) → merged_display:
     else if variant_display.resolution exists:
         merged.resolution = variant_display.resolution
     
-    # Touch: union of requirements - if either requires touch, result requires touch
-    # If either explicitly requires non-touch (false), check for conflict
+    # Touch: check for explicit contradictions first, then handle matches
     base_touch = base_display.touch if exists else null
     variant_touch = variant_display.touch if exists else null
     
-    if base_touch == true or variant_touch == true:
-        merged.touch = true
-    else if base_touch == false and variant_touch == false:
-        merged.touch = false
-    else if base_touch == false and variant_touch == true:
+    # Check for explicit contradictions
+    if base_touch == false and variant_touch == true:
         error("Conflicting touch requirement: base requires non-touch, variant requires touch")
     else if base_touch == true and variant_touch == false:
         error("Conflicting touch requirement: base requires touch, variant requires non-touch")
+    # Handle non-contradictory cases
+    else if base_touch == true or variant_touch == true:
+        merged.touch = true
+    else if base_touch == false and variant_touch == false:
+        merged.touch = false
     # else: both null, no touch constraint
     
     return merged
@@ -663,6 +664,8 @@ Apply this validation to:
 - Variant manifest `path` values
 - Any user-provided path arguments
 - **CRITICAL**: All paths loaded from state files (`files.yml`) before backup, deletion, or restore operations
+
+**Reserved namespace**: The `EDGETX/PKG/` directory is reserved for package manager internal use (state files, transaction records, backups). Reject any content destination path that begins with `EDGETX/PKG/` to prevent state corruption.
 
 **Note on schema validation**: The current JSON schema (`edgetx-manifest.v1.json`) does not enforce all path security rules lexically. It permits absolute paths, backslashes, and `..` segments in path fields, and does not require `dest` when `path: .`. Implementations **must** apply the runtime checks above regardless of schema validation. Future schema revisions should add stricter lexical patterns where feasible, but full security validation (symlink resolution, containment checks) can only be performed at runtime.
 
@@ -925,20 +928,6 @@ packages:
 ```
 
 **Note**: Local libraries declared in a package's manifest are installed as regular files owned by that package. They are tracked in `files.yml` like any other content and removed when the owning package is removed.
-
-After removing `tool-a`:
-
-```yaml
-libraries:
-  - lib_id: github.com/edgetx/lib-json
-    version: "2.1.3"
-    path: SCRIPTS/LIBS/pkg/edgetx.json/2.1.3
-    requested_by:
-      - package_id: github.com/acme/tool-b
-        package_version: "3.2.0"
-```
-
-After removing `tool-b`, the library's `requested_by` becomes empty, so the library files are deleted and the library entry is removed from state.
 
 ---
 
