@@ -55,9 +55,14 @@
     "packageBlock": {
       "type": "object",
       "description": "Top-level package metadata.",
-      "required": ["id", "description"],
+      "required": ["spec_version", "id", "description"],
       "additionalProperties": false,
       "properties": {
+        "spec_version": {
+          "type": "string",
+          "description": "Version of the EdgeTX package spec this manifest targets. Tooling must reject manifests declaring an unknown version.",
+          "enum": ["1.0"]
+        },
         "id": {
           "type": "string",
           "description": "Canonical package identifier. Must be a URL-like path with at least host/owner/repo (3 slash-separated segments). First segment must contain a dot.",

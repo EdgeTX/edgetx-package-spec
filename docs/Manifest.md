@@ -12,6 +12,7 @@ The `edgetx.yml` file describes your package and its contents:
 
 ```yaml
 package:
+  spec_version: "1.0"                                         # required: spec version this manifest targets
   id: github.com/ExpressLRS/Lua-Scripts                       # required: canonical URL-like path
   name: "ExpressLRS"                                          # optional: human-friendly display name
   description: ExpressLRS Lua scripts and widgets for EdgeTX  # required
@@ -137,6 +138,7 @@ files:
 
 | Field | Required | Description |
 |---|---|---|
+| `spec_version` | **yes** | Version of the EdgeTX package spec this manifest targets. Must be `"1.0"`. Enables forward compatibility — future spec versions will introduce new values. |
 | `id` | **yes** | Where the package lives: the git repo URL without the scheme (e.g. `github.com/ExpressLRS/Lua-Scripts`). See [Package id](#package-id) below. |
 | `name` | no | Human-friendly display name (may contain spaces, punctuation, etc.). Falls back to the full `id` if absent. |
 | `description` | **yes** | Non-empty description of the package. |
@@ -164,6 +166,7 @@ The CLI accepts GitHub shorthand (`ExpressLRS/Lua-Scripts`) as input — it's ex
 
 ### Validation rules
 
+- **`spec_version`** must be present and equal to `"1.0"`. Tooling must reject manifests declaring an unknown spec version.
 - **`id`** must have at least three `/`-separated segments (`host/owner/repo`). The first segment must contain `.` (is a host). Each segment must match `^[a-zA-Z0-9][a-zA-Z0-9_.-]*$`. Extra segments become subpackage path.
 - **`description`** must be present and non-empty.
 - **`license`** is validated as an SPDX expression. Compound expressions like `"MIT OR Apache-2.0"` and `"Apache-2.0 AND MIT"` are accepted.

@@ -1,4 +1,5 @@
 # Minimal tool package — no variants, no dependencies, no optional fields.
 package:
+  spec_version: "1.0"
   id: github.com/acme/simple-tool
   description: A simple EdgeTX tool script

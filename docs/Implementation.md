@@ -157,6 +157,15 @@ auto_select_best_variant(manifest, radio_capabilities) → variant_path:
 ## Compatibility Checking
 
 ```
+SUPPORTED_SPEC_VERSIONS = ["1.0"]
+
+check_spec_version(manifest_spec_version):
+    if manifest_spec_version not in SUPPORTED_SPEC_VERSIONS:
+        error(UNSUPPORTED_SPEC_VERSION,
+              "manifest targets spec version " + manifest_spec_version
+              + ", supported: " + SUPPORTED_SPEC_VERSIONS)
+
+
 check_version_compatibility(min_version, max_version, running_version):
     if min_version and not version_ge(running_version, min_version):
         error(EDGETX_VERSION_TOO_LOW,
@@ -181,6 +190,8 @@ check_capabilities_compatibility(manifest_capabilities, radio_capabilities):
 ```
 
 Version comparison uses semantic versioning rules. The `x` wildcard in `max_edgetx_version` (e.g. `"2.13.x"`) matches any patch level within that minor version.
+
+`check_spec_version` must be called before all other compatibility checks. Tooling should maintain a hard-coded list of spec versions it understands and abort early with a clear error message when a manifest declares an unknown version, so that newer manifests are never silently misinterpreted by older tooling.
 
 ---
 
