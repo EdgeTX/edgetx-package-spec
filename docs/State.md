@@ -84,7 +84,7 @@ packages:
 
 **Field semantics:**
 
-- `dev_mode`: Boolean indicating whether the package was installed with `--dev` flag (includes `dev: true` content items). Update operations preserve this mode unless explicitly changed. Defaults to `false` for packages installed before this field was introduced.
+- `dev_mode`: Boolean indicating whether the package was installed with `--dev` flag (includes `dev: true` content items). Update operations preserve this mode unless explicitly changed with `--dev` (to enable) or `--no-dev` (to disable). Defaults to `false` for packages installed before this field was introduced.
 
 ### Compatibility status
 

@@ -28,6 +28,10 @@ resolve_package_ref(pkg_ref) → (manifest, manifest_dir, metadata)
 
 check_spec_version(manifest.spec_version)
 
+# CRITICAL: Validate base manifest requirements (see Manifest.md context-specific validation)
+# Base manifests (loaded from root source) MUST have id and description
+validate_base_manifest_fields(manifest)  # Ensure package.id and package.description are present
+
 # CRITICAL: Check if package is already installed - treat as update/reinstall
 existing_package = try_find_installed_package(manifest.package.id)
 if existing_package:
@@ -106,6 +110,10 @@ resolve_new_version(old_package) → new_manifest, manifest_dir, new_version
 
 check_spec_version(new_manifest.spec_version)
 
+# CRITICAL: Validate base manifest requirements (see Manifest.md context-specific validation)
+# Base manifests (loaded from root source) MUST have id and description
+validate_base_manifest_fields(new_manifest)  # Ensure package.id and package.description are present
+
 # CRITICAL: Verify package identity to prevent substitution attacks
 if new_manifest.package.id != old_package.id:
     error("Package identity mismatch: cannot update " + old_package.id + 
@@ -140,8 +148,13 @@ check_version_compatibility(
 check_capabilities_compatibility(new_manifest.capabilities, radio_capabilities)
 
 # CRITICAL: Preserve dev mode from the original install
-# Updates maintain the same mode unless explicitly changed
-include_dev_items = (old_package.dev_mode if exists else false) or command_has_flag("--dev")
+# Updates maintain the same mode unless explicitly changed via --dev or --no-dev
+if command_has_flag("--dev"):
+    include_dev_items = true
+else if command_has_flag("--no-dev"):
+    include_dev_items = false
+else:
+    include_dev_items = (old_package.dev_mode if exists else false)
 
 # Validate local dependencies with the same mode
 validate_local_dependencies(new_manifest, include_dev_items)
@@ -1118,8 +1131,10 @@ rollback_transaction(transaction, sd_root, installed_yml, files_yml):
 
 ## State Recording
 
+**Note**: With the transaction protocol, state updates are performed atomically via `finalize_transaction`, which applies the complete `new_state` snapshot. The helpers below are conceptual examples showing how state entries are constructed; implementations using transactions should build the `new_state` structure during transaction creation rather than calling these helpers directly.
+
 ```
-record_installed_state(installed_yml, package, selected_variant_path, dev_mode):
+record_installed_state(installed_yml, package, manifest, selected_variant_path, dev_mode):
     entry = {
         id:           package.id,
         version:      package.version,
@@ -1147,7 +1162,7 @@ record_installed_state(installed_yml, package, selected_variant_path, dev_mode):
     write_yaml(installed_yml, state)
 
 
-record_file_ownership(files_yml, package, staged_files):
+record_file_ownership(files_yml, package, selected_variant_path, staged_files):
     for each file in staged_files:
         entry = {
             path:          sd_relative_path(file),
@@ -1173,10 +1188,10 @@ update_installed_state(installed_yml, old_package, new_manifest, selected_varian
     write_yaml(installed_yml, state)
 
 
-update_file_ownership(files_yml, old_package_id, new_manifest):
+update_file_ownership(files_yml, old_package_id, new_package, selected_variant_path, staged_files):
     # Remove all old entries for old_package_id, then add new ones.
     state.files = [f for f in state.files if f.owner_id != old_package_id]
-    record_file_ownership(files_yml, new_manifest, newly_staged_files)
+    record_file_ownership(files_yml, new_package, selected_variant_path, staged_files)
 
 
 load_tracked_files_for_package(package_id) → file_list:
@@ -1210,6 +1225,7 @@ packages:
     version: "1.0.0"
     variant: null
     installed_at: "2026-08-23T12:00:00Z"
+    dev_mode: false
     source:
       repo: github.com/acme/simple-tool
       ref: "v1.0.0"
