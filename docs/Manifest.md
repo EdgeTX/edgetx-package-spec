@@ -204,12 +204,15 @@ package:
     display:
       type: colorlcd          # "bw" or "colorlcd"
       resolution: 480x272     # optional: exact resolution (e.g., "128x64", "480x272")
-      touch: true             # optional: requires touchscreen
+      touch: true             # optional: true requires touchscreen, false requires non-touch
 ```
 
 All fields inside `display` are optional — omit any to mean "any". For example, `type: colorlcd` alone matches any color LCD radio regardless of resolution.
 
-Capability matching is an AND-match on all fields that are declared by the package/variant filter.
+Capability matching is an AND-match on all fields that are declared by the package/variant filter. For `touch`, the behavior is:
+- `touch: true` — requires a touchscreen device
+- `touch: false` — requires a non-touchscreen device
+- `touch` omitted — matches both touchscreen and non-touchscreen devices
 
 When installing a package, the CLI reads the radio's board info from the SD card and checks it against the catalog to determine display type, resolution, and other capabilities. If the package's filters don't match, install is blocked unless explicitly overridden.
 

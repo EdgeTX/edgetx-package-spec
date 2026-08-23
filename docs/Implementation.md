@@ -82,7 +82,7 @@ if old_package.variant:
         load_variant_manifest(reuse_variant)
     else:
         error("variant no longer exists in new version, reinstall to switch")
-else:
+else if new_manifest.has_variants():
     auto_select_best_variant(new_manifest, radio)
 
 check_version_compatibility(
@@ -95,14 +95,55 @@ check_capabilities_compatibility(new_manifest.capabilities, radio_capabilities)
 for each content_item in new_manifest.content_items():
     check_file_not_owned_by_other_package(content_item.dest, old_package.id)
 
-remove_old_package_files(old_package)       # see Remove Operation
-install_new_package_files(new_manifest)     # see Install Operation
+# NON-DESTRUCTIVE UPDATE: stage first, then atomically replace
+staging_dir = stage_files_locally(new_manifest, manifest_dir)
+if compilation_needed:
+    compile_lua_files(staging_dir)
 
-update_installed_state(installed.yml, old_package, new_manifest)
-update_file_ownership(files.yml, old_package.id, new_manifest)
+# Verify all files staged successfully before modifying SD card
+verify_staging_complete(staging_dir, new_manifest)
+
+# Create backup of old package state for potential rollback
+backup_dir = create_backup_dir()
+old_files = load_tracked_files_for_package(old_package.id)
+for each file in old_files:
+    backup_file(sd_root + file.path, backup_dir)
+
+try:
+    # Remove old files
+    remove_old_package_files(old_package)
+    
+    # Install new files
+    copy_staged_files_to_sd(staging_dir, sd_root)
+    
+    # Update state files atomically
+    update_installed_state_atomic(installed.yml, old_package, new_manifest)
+    update_file_ownership_atomic(files.yml, old_package.id, new_manifest)
+    
+    # Commit successful - remove backup
+    remove_backup_dir(backup_dir)
+    
+catch error:
+    # Rollback on failure
+    warn("update failed: " + error + ", rolling back")
+    restore_from_backup(backup_dir, sd_root)
+    restore_state_files(backup_dir)
+    throw error
+finally:
+    cleanup_staging_dir(staging_dir)
 ```
 
-**Key constraint:** `pkg update` always keeps the currently-installed variant. To switch variants, the user must run `pkg install` explicitly.
+**Key constraints:**
+- `pkg update` always keeps the currently-installed variant. To switch variants, the user must run `pkg install` explicitly.
+- Updates are non-destructive: new files are staged and verified before any SD card modifications.
+- If an update fails, the old package is restored from backup.
+- State files should be written atomically (write to temp file, then rename).
+
+**Interrupted operation recovery:**
+- If tooling crashes during update, the backup directory remains in place
+- On next startup, tooling should detect incomplete updates and offer to:
+  1. Complete the update (if new files are intact), or
+  2. Roll back to the backup (if update was interrupted)
 
 ---
 
@@ -194,7 +235,7 @@ find_installed_package(query) → package:
 ```
 resolve_new_version(old_package) → (new_manifest, new_version):
     fetch_or_update_local_cache(old_package.source.repo)
-    latest_ref = resolve_latest_ref(old_package.source.repo, old_package.source.channel)
+    latest_ref = resolve_latest_ref(old_package.source.repo)
     new_manifest = load_manifest(old_package.source.repo, latest_ref,
                                  old_package.source.manifest_path)
     new_version = new_manifest.package.version
@@ -278,7 +319,8 @@ capabilities_match(filter, radio) → bool:
             if filter.display.resolution != radio.display.resolution:
                 return false
         if filter.display.touch is present:
-            if filter.display.touch and not radio.display.touch:
+            # touch: true requires touchscreen, touch: false requires non-touch
+            if filter.display.touch != radio.display.touch:
                 return false
 
     return true
@@ -509,7 +551,7 @@ record_file_ownership(files_yml, package, staged_files):
 update_installed_state(installed_yml, old_package, new_manifest):
     # Replace the existing entry for old_package.id in-place.
     entry = find_entry(installed_yml, old_package.id)
-    entry.version      = new_manifest.version
+    entry.version      = new_manifest.package.version
     entry.variant      = selected_variant_path or null
     entry.source.ref   = new_manifest.source.ref
     entry.constraints  = extract_constraints(new_manifest)
