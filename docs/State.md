@@ -37,6 +37,15 @@ Each operation must follow an atomic transaction pattern:
 
 4. **Finalize**: Update `installed.yml` and `files.yml`, then delete transaction record and backups
 
+**Concurrency control:**
+
+Package manager operations MUST be serialized - only one operation may execute at a time. Implementations should:
+- Acquire an exclusive lock on `EDGETX/PKG/state/.lock` before recovery and hold through finalization
+- Use lock file with PID and timestamp for stale lock detection
+- If lock file exists with stale PID (process no longer running), remove and reacquire
+- If lock file exists with active PID, wait or abort with error
+- Release lock only after transaction finalization completes
+
 **Recovery on startup:**
 
 On package manager startup, scan for `.txn-*.yml` files:

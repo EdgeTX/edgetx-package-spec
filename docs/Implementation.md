@@ -197,7 +197,10 @@ check_conflicts_before_install(new_manifest, old_package.id, sd_root, include_de
 old_files = load_tracked_files_for_package(old_package.id)
 
 # CRITICAL: Verify file integrity before destructive operations
-# Refuse to overwrite user-modified files
+# Refuse to overwrite user-modified files unless --force is used
+force_update = command_has_flag("--force")
+modified_files_to_backup = []
+
 for each file in old_files:
     validated_path = normalize_and_validate_path(file.path, sd_root)
     full_path = sd_root + validated_path
@@ -206,16 +209,25 @@ for each file in old_files:
         continue  # file was deleted by user - warn but continue
     
     if file.sha256 is absent:
-        error(FILE_MODIFIED,
-              "cannot safely replace file without recorded integrity hash: " + validated_path +
-              "; use --force to override")
+        if not force_update:
+            error(FILE_MODIFIED,
+                  "cannot safely replace file without recorded integrity hash: " + validated_path +
+                  "; use --force to override")
+        else:
+            warn("File missing integrity hash, backing up before update: " + validated_path)
+            modified_files_to_backup.append(validated_path)
+            continue
     
     current_hash = compute_sha256(full_path)
     if current_hash != file.sha256:
-        error(FILE_MODIFIED,
-              "installed file was modified locally: " + validated_path +
-              "; aborting update to protect user changes. " +
-              "Backup the file, remove the package, and reinstall.")
+        if not force_update:
+            error(FILE_MODIFIED,
+                  "installed file was modified locally: " + validated_path +
+                  "; aborting update to protect user changes. " +
+                  "Use --force to override or backup the file and reinstall.")
+        else:
+            warn("File was modified locally, backing up before update: " + validated_path)
+            modified_files_to_backup.append(validated_path)
 
 # BEGIN TRANSACTION for crash-safe update
 old_state = snapshot_package_state(installed.yml, files.yml, old_package.id)
@@ -257,7 +269,9 @@ for each staged_file in staged_file_list:
             # Already in old_file_paths or unowned
             if not owner:
                 untracked_overwrites.append(staged_file.path)
-all_paths_to_backup = old_file_paths + luac_companions + untracked_overwrites
+
+# Include modified files identified during integrity checks (when --force is used)
+all_paths_to_backup = old_file_paths + modified_files_to_backup + luac_companions + untracked_overwrites
 backup_existing_files(transaction, all_paths_to_backup, sd_root)
 
 # Remove old files
@@ -1326,6 +1340,7 @@ packages:
     version: "3.0.1"
     variant: "edgetx.color-touch.yml"
     installed_at: "2026-08-23T13:00:00Z"
+    dev_mode: false
     source:
       repo: github.com/yaapu/FrskyTelemetryScript
       ref: "v3.0.1"
@@ -1358,6 +1373,7 @@ packages:
     version: "2.0.0"
     variant: "edgetx.color.yml"
     installed_at: "2026-08-23T14:00:00Z"
+    dev_mode: false
     source:
       repo: github.com/acme/new-widget
       ref: "v2.0.0"
