@@ -26,6 +26,8 @@ Pseudocode for `pkg install <pkg_ref>`:
 ```
 resolve_package_ref(pkg_ref) → (manifest, manifest_dir, metadata)
 
+check_spec_version(manifest.spec_version)
+
 if manifest.has_variants():
     if user_specified_variant:
         selected_variant = find_variant_by_path(manifest, user_variant)
@@ -43,7 +45,7 @@ check_version_compatibility(
 check_capabilities_compatibility(manifest.capabilities, radio_capabilities)
 
 for each content_item in manifest.content_items():
-    check_file_not_owned_by_other_package(content_item.dest)
+    check_file_not_owned_by_other_package(content_item.dest, package.id)
 
 resolved_libs = resolve_library_dependencies(manifest, state)
 
@@ -53,10 +55,8 @@ if compilation_needed:
 
 copy_staged_files_to_sd()
 
-record_installed_state(installed.yml):
-    - id, version, variant, source, constraints, status=OK, resolved_libs
-record_file_ownership(files.yml):
-    - each installed file with owner_id, owner_version, owner_variant, sha256
+record_installed_state(installed.yml, package, resolved_libs)
+record_file_ownership(files.yml, package)
 ```
 
 ---
@@ -68,6 +68,8 @@ Pseudocode for `pkg update <package>`:
 ```
 old_package = find_installed_package(query)
 resolve_new_version(old_package) → new_manifest, new_version
+
+check_spec_version(new_manifest.spec_version)
 
 if new_version == old_version:
     return status=up_to_date
@@ -81,15 +83,21 @@ if old_package.variant:
 else:
     auto_select_best_variant(new_manifest, radio)
 
-check_version_compatibility(new_manifest)
-check_capabilities_compatibility(new_manifest, radio_capabilities)
-check_file_not_owned_by_other_package(skip_id=old_package.id)
+check_version_compatibility(
+    new_manifest.min_edgetx_version,
+    new_manifest.max_edgetx_version,
+    running_edgetx_version
+)
+check_capabilities_compatibility(new_manifest.capabilities, radio_capabilities)
+
+for each content_item in new_manifest.content_items():
+    check_file_not_owned_by_other_package(content_item.dest, old_package.id)
 
 remove_old_package_files(old_package)       # see Remove Operation
 install_new_package_files(new_manifest)     # see Install Operation
 
-update_installed_state(installed.yml)       # overwrite existing record
-update_file_ownership(files.yml)            # replace old file entries
+update_installed_state(installed.yml, old_package, new_manifest)
+update_file_ownership(files.yml, old_package.id, new_manifest)
 
 cleanup_unreferenced_libraries(state)
 ```
@@ -121,6 +129,116 @@ for each lib in package.resolved_libs:
 
 remove_package_from_installed_state(package.id)
 remove_tracked_file_entries(files.yml, package.id)
+
+cleanup_unreferenced_libraries(state)
+```
+
+---
+
+## Package Resolution
+
+```
+resolve_package_ref(pkg_ref) → (manifest, manifest_dir, metadata):
+    # pkg_ref may be:
+    #   github.com/owner/repo[@ref][::variant_path]
+    #   owner/repo (GitHub shorthand — expanded to github.com/owner/repo)
+
+    (repo_id, ref, variant_override) = parse_pkg_ref(pkg_ref)
+    clone_url = "https://" + repo_id + ".git"
+
+    fetch_or_update_local_cache(clone_url, ref)
+    manifest_dir = resolve_manifest_dir(repo_id, ref)
+
+    # subpackage: try subdirectory form first, then flat-file fallback
+    manifest_path = find_manifest_file(manifest_dir, repo_id)
+
+    manifest = parse_yaml(manifest_path)
+    metadata = { clone_url, ref, manifest_path }
+    return (manifest, manifest_dir, metadata)
+
+
+find_manifest_file(manifest_dir, repo_id) → path:
+    subpath = extract_subpath(repo_id)         # segments after host/owner/repo
+    if subpath:
+        candidate = manifest_dir / subpath / "edgetx.yml"
+        if exists(candidate): return candidate
+        # flat-file fallback: a/b → edgetx.a.b.yml
+        flat_name = "edgetx." + subpath.replace("/", ".") + ".yml"
+        candidate = manifest_dir / flat_name
+        if exists(candidate): return candidate
+        error("manifest not found for subpackage " + subpath)
+    else:
+        return manifest_dir / "edgetx.yml"
+```
+
+---
+
+## Installed Package Lookup
+
+```
+find_installed_package(query) → package:
+    # query may be a full id, GitHub shorthand, or display name
+    state = load_state(installed.yml)
+
+    # exact id match
+    for each pkg in state.packages:
+        if pkg.id == normalize_id(query):
+            return pkg
+
+    # partial suffix match (e.g. "log-viewer" matches "github.com/owner/repo/log-viewer")
+    matches = [pkg for pkg in state.packages if pkg.id.ends_with("/" + query)]
+    if len(matches) == 1:
+        return matches[0]
+    if len(matches) > 1:
+        error("ambiguous package query '" + query + "', be more specific")
+
+    error("package not found: " + query)
+```
+
+---
+
+## Version Resolution
+
+```
+resolve_new_version(old_package) → (new_manifest, new_version):
+    fetch_or_update_local_cache(old_package.source.repo)
+    latest_ref = resolve_latest_ref(old_package.source.repo, old_package.source.channel)
+    new_manifest = load_manifest(old_package.source.repo, latest_ref,
+                                 old_package.source.manifest_path)
+    new_version = new_manifest.package.version
+    return (new_manifest, new_version)
+```
+
+---
+
+## Variant Lookup Helpers
+
+```
+find_variant_by_path(manifest, path) → variant:
+    for each variant in manifest.variants:
+        if variant.path == path:
+            return variant
+    error("variant '" + path + "' not declared in manifest")
+
+
+variant_still_exists(manifest, path) → bool:
+    for each variant in manifest.variants:
+        if variant.path == path:
+            return true
+    return false
+
+
+load_variant_manifest(variant) → merged_manifest:
+    variant_doc = parse_yaml(variant.path)
+    # variant file inherits id from base; only content sections are overridden
+    merged = base_manifest.copy()
+    merged.tools     = variant_doc.tools     if present else []
+    merged.widgets   = variant_doc.widgets   if present else []
+    merged.libraries = variant_doc.libraries if present else []
+    # ... repeat for all content section types
+    if variant_doc.package.description is present:
+        merged.package.description = variant_doc.package.description
+    return merged
 ```
 
 ---
@@ -144,13 +262,35 @@ auto_select_best_variant(manifest, radio_capabilities) → variant_path:
     if len(candidates) == 1:
         return candidates[0].variant.path
 
-    # Tie-break: lexically first path in manifest order
+    # Tie-break: first matching variant in manifest declaration order
     return first_in_manifest_order(candidates).variant.path
 ```
 
-`capabilities_match(filter, radio)` returns true if every field declared in `filter` matches the corresponding field in `radio`. Omitted filter fields are treated as wildcards.
-
 `count_specified_fields` counts non-null fields in `capabilities` (recursively) so that a variant declaring `{type, resolution, touch}` scores higher than one declaring only `{type}`.
+
+---
+
+## Capabilities Matching
+
+```
+capabilities_match(filter, radio) → bool:
+    # An omitted filter field is a wildcard — it matches anything.
+    if filter is null or filter is empty:
+        return true
+
+    if filter.display:
+        if filter.display.type is present:
+            if filter.display.type != radio.display.type:
+                return false
+        if filter.display.resolution is present:
+            if filter.display.resolution != radio.display.resolution:
+                return false
+        if filter.display.touch is present:
+            if filter.display.touch and not radio.display.touch:
+                return false
+
+    return true
+```
 
 ---
 
@@ -181,14 +321,19 @@ check_version_compatibility(min_version, max_version, running_version):
 
 
 check_capabilities_compatibility(manifest_capabilities, radio_capabilities):
+    if manifest_capabilities is null:
+        return   # no capability requirement declared
+
     if manifest_capabilities.display:
         cap = manifest_capabilities.display
         if cap.type and cap.type != radio_capabilities.display.type:
             error(CAPABILITY_MISMATCH,
-                  "requires display type " + cap.type)
+                  "requires display type " + cap.type
+                  + ", radio has " + radio_capabilities.display.type)
         if cap.resolution and cap.resolution != radio_capabilities.display.resolution:
             error(CAPABILITY_MISMATCH,
-                  "requires display resolution " + cap.resolution)
+                  "requires display resolution " + cap.resolution
+                  + ", radio has " + radio_capabilities.display.resolution)
         if cap.touch and not radio_capabilities.display.touch:
             error(CAPABILITY_MISMATCH,
                   "requires touchscreen display")
@@ -229,6 +374,25 @@ resolve_library_dependencies(package, state) → resolved_libs:
         )
 
     return resolved_libs
+
+
+filter_by_semver_constraint(versions, constraint) → matching_versions:
+    # constraint uses npm-style semver ranges: ^2.1.0, ~2.1.0, >=2.0.0, etc.
+    return [v for v in versions if semver_satisfies(v.version, constraint)]
+
+
+install_library(lib_id, constraint) → installed_lib:
+    # Resolve the best published version of lib_id satisfying constraint,
+    # fetch it, and install to the isolated library path.
+    available = fetch_available_versions(lib_id)
+    candidates = filter_by_semver_constraint(available, constraint)
+    if candidates is empty:
+        error(DEPENDENCY_MISSING,
+              "no version of " + lib_id + " satisfies constraint " + constraint)
+    chosen = max_by_semver(candidates)
+    install_path = "SCRIPTS/LIBS/pkg/" + slug(lib_id) + "/" + chosen.version
+    fetch_and_copy(lib_id, chosen.version, install_path)
+    return { version: chosen.version, path: install_path }
 ```
 
 ---
@@ -261,6 +425,137 @@ check_file_not_owned_by_other_package(dest_path, current_package_id):
 ```
 
 In non-interactive mode (e.g. CI pipelines or AI-agent usage), treat absence of user confirmation as implicit rejection and abort.
+
+---
+
+## File Staging and Copy
+
+```
+stage_files_locally(manifest, manifest_dir) → staging_dir:
+    staging_dir = create_temp_dir()
+    source_root = manifest_dir / manifest.package.source_dir   # source_dir may be "."
+
+    for each content_item in manifest.content_items():
+        src = first_existing(source_root / content_item.path,
+                             manifest_dir  / content_item.path)
+        if src does not exist:
+            error("source path not found: " + content_item.path)
+
+        dest_rel = content_item.dest if present else content_item.path
+        copy_tree(src, staging_dir / dest_rel,
+                  exclude=content_item.exclude,
+                  skip_luac=(not manifest.package.binary))
+
+    return staging_dir
+
+
+copy_staged_files_to_sd(staging_dir, sd_root):
+    for each file in walk(staging_dir):
+        dest = sd_root / relative_path(file, staging_dir)
+        ensure_parent_dirs(dest)
+        copy_file(file, dest)
+        compute_sha256(file)   # stored in files.yml during record_file_ownership
+
+
+delete_luac_companion_if_untracked(luac_path):
+    # When a .lua file is removed, also delete the matching .luac if it exists
+    # on the SD card but is NOT tracked in files.yml (i.e. was compiled in place).
+    if file_exists(sd_root + luac_path) and not tracked_in_files_yml(luac_path):
+        delete_file(sd_root + luac_path)
+
+
+remove_empty_tree_bottom_up(directory):
+    # Walk upward from directory, removing each level that is now empty,
+    # stopping at sd_root or the first non-empty directory.
+    current = directory
+    while current != sd_root and is_empty_dir(current):
+        remove_dir(current)
+        current = parent(current)
+```
+
+---
+
+## State Recording
+
+```
+record_installed_state(installed_yml, package, resolved_libs):
+    entry = {
+        id:           package.id,
+        version:      package.version,
+        variant:      selected_variant_path or null,
+        installed_at: now_utc(),
+        source: {
+            repo:          package.source.repo,
+            ref:           package.source.ref,
+            manifest_path: package.source.manifest_path,
+        },
+        constraints: {
+            min_edgetx_version: manifest.min_edgetx_version or null,
+            max_edgetx_version: manifest.max_edgetx_version or null,
+            capabilities:       manifest.capabilities or null,
+        },
+        status: {
+            compatible:   true,
+            code:         "OK",
+            reason:       "",
+        },
+        last_checked_at: now_utc(),
+    }
+    state.packages.append(entry)
+    write_yaml(installed_yml, state)
+
+
+record_file_ownership(files_yml, package, staged_files):
+    for each file in staged_files:
+        entry = {
+            path:          sd_relative_path(file),
+            owner_id:      package.id,
+            owner_version: package.version,
+            owner_variant: selected_variant_path or null,
+            sha256:        sha256_of(file),
+        }
+        state.files.append(entry)
+    write_yaml(files_yml, state)
+
+
+update_installed_state(installed_yml, old_package, new_manifest):
+    # Replace the existing entry for old_package.id in-place.
+    entry = find_entry(installed_yml, old_package.id)
+    entry.version      = new_manifest.version
+    entry.variant      = selected_variant_path or null
+    entry.source.ref   = new_manifest.source.ref
+    entry.constraints  = extract_constraints(new_manifest)
+    entry.status       = { compatible: true, code: "OK", reason: "" }
+    entry.last_checked_at = now_utc()
+    write_yaml(installed_yml, state)
+
+
+update_file_ownership(files_yml, old_package_id, new_manifest):
+    # Remove all old entries for old_package_id, then add new ones.
+    state.files = [f for f in state.files if f.owner_id != old_package_id]
+    record_file_ownership(files_yml, new_manifest, newly_staged_files)
+
+
+load_tracked_files_for_package(package_id) → file_list:
+    state = load_yaml(files_yml)
+    return [f for f in state.files if f.owner_id == package_id]
+
+
+remove_package_from_installed_state(package_id):
+    state.packages = [p for p in state.packages if p.id != package_id]
+    write_yaml(installed_yml, state)
+
+
+remove_tracked_file_entries(files_yml, package_id):
+    state.files = [f for f in state.files if f.owner_id != package_id]
+    write_yaml(files_yml, state)
+
+
+remove_package_from_lib_requested_by(lib_id, lib_version, package_id):
+    lib = find_lib(state, lib_id, lib_version)
+    lib.requested_by = [r for r in lib.requested_by if r.package_id != package_id]
+    write_yaml(installed_yml, state)
+```
 
 ---
 

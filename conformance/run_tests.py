@@ -10,10 +10,10 @@ Exit codes:
     1  One or more tests failed
 
 Schema validated: schema/edgetx-manifest.v1.json
-Valid examples:   conformance/valid/    — all must pass JSON Schema validation
-Invalid examples: conformance/invalid/  — all must fail JSON Schema validation
-Semantic cases:   conformance/semantic/ — structurally valid but semantically invalid;
-                                          not tested here (require semantic analysis)
+Valid examples:   conformance/valid/   — all must pass JSON Schema validation
+Invalid examples: conformance/invalid/ — all must fail JSON Schema validation
+                  Files listed in SEMANTIC_ONLY are structurally valid (JSON Schema
+                  cannot detect the violation) and are noted rather than failed.
 """
 
 import json
@@ -27,6 +27,13 @@ REPO_ROOT = pathlib.Path(__file__).parent.parent
 SCHEMA_PATH = REPO_ROOT / "schema" / "edgetx-manifest.v1.json"
 VALID_DIR = REPO_ROOT / "conformance" / "valid"
 INVALID_DIR = REPO_ROOT / "conformance" / "invalid"
+
+# Fixtures whose invalidity is semantic (not detectable by JSON Schema alone).
+# These live in invalid/ for documentation purposes but cannot be caught by
+# schema validation — they require semantic analysis in tooling.
+SEMANTIC_ONLY = {
+    "circular-dependency.yml",
+}
 
 
 def load_schema() -> dict:
@@ -44,6 +51,7 @@ def run() -> bool:
     schema = load_schema()
     passed = 0
     failed = 0
+    skipped = 0
 
     print(f"Schema: {SCHEMA_PATH.relative_to(REPO_ROOT)}\n")
 
@@ -68,10 +76,16 @@ def run() -> bool:
     # ---- invalid fixtures: must ALL fail ----
     print("=== Invalid manifests (must fail) ===")
     for path in sorted(INVALID_DIR.glob("*.yml")):
+        rel = path.relative_to(REPO_ROOT)
+
+        if path.name in SEMANTIC_ONLY:
+            print(f"  SKIP  {rel}  (semantic-only: schema cannot detect this violation)")
+            skipped += 1
+            continue
+
         with path.open() as fh:
             instance = yaml.safe_load(fh)
         errors = validate(instance, schema)
-        rel = path.relative_to(REPO_ROOT)
         if errors:
             print(f"  PASS  {rel}  (rejected as expected)")
             passed += 1
@@ -80,7 +94,7 @@ def run() -> bool:
             failed += 1
 
     print()
-    print(f"Results: {passed} passed, {failed} failed")
+    print(f"Results: {passed} passed, {failed} failed, {skipped} skipped (semantic-only)")
     return failed == 0
 
 

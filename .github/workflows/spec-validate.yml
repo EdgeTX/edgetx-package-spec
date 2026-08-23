@@ -12,8 +12,65 @@ permissions:
   contents: read
 
 jobs:
+  schema-validate:
+    name: Schema — validate conformance examples against schema
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install validation dependencies
+        run: pip install jsonschema PyYAML
+
+      - name: Validate valid fixtures pass schema
+        run: |
+          python - << 'PYEOF'
+          import json, sys, pathlib
+          import jsonschema, yaml
+          root = pathlib.Path(".")
+          schema = json.load(open("schema/edgetx-manifest.v1.json"))
+          failed = 0
+          for f in sorted((root / "conformance/valid").glob("*.yml")):
+              instance = yaml.safe_load(f.read_text())
+              errs = list(jsonschema.Draft202012Validator(schema).iter_errors(instance))
+              if errs:
+                  print(f"FAIL {f}: {errs[0].message}")
+                  failed += 1
+              else:
+                  print(f"PASS {f}")
+          sys.exit(failed)
+          PYEOF
+
+      - name: Validate invalid fixtures fail schema
+        run: |
+          python - << 'PYEOF'
+          import json, sys, pathlib
+          import jsonschema, yaml
+          root = pathlib.Path(".")
+          schema = json.load(open("schema/edgetx-manifest.v1.json"))
+          # Fixtures whose invalidity is semantic — JSON Schema cannot detect them.
+          SEMANTIC_ONLY = {"circular-dependency.yml"}
+          failed = 0
+          for f in sorted((root / "conformance/invalid").glob("*.yml")):
+              if f.name in SEMANTIC_ONLY:
+                  print(f"SKIP {f}: semantic-only, not detectable by schema")
+                  continue
+              instance = yaml.safe_load(f.read_text())
+              errs = list(jsonschema.Draft202012Validator(schema).iter_errors(instance))
+              if not errs:
+                  print(f"FAIL {f}: should have been rejected but passed")
+                  failed += 1
+              else:
+                  print(f"PASS {f}: rejected as expected")
+          sys.exit(failed)
+          PYEOF
+
   conformance-tests:
-    name: Conformance — schema validation
+    name: Conformance — full test suite (valid pass, invalid fail)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -50,7 +107,7 @@ jobs:
     name: Publish schema as release asset (on release tag)
     runs-on: ubuntu-latest
     if: github.event_name == 'release'
-    needs: [conformance-tests]
+    needs: [schema-validate, conformance-tests]
     permissions:
       contents: write
     steps:
