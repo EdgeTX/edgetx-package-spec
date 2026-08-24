@@ -2,115 +2,134 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/EdgeTX/edgetx-package-spec/main/schema/edgetx-manifest.v1.json",
   "title": "EdgeTX Package Manifest",
-  "description": "JSON Schema for the EdgeTX edgetx.yml package manifest format (v1). This schema validates both base manifests and variant manifests. Variant manifests inherit id from their base and typically only declare content sections. See docs/Manifest.md for the normative specification.",
+  "description": "JSON Schema for the EdgeTX edgetx.yml package manifest format (edgetx_format_version 1.x). Every manifest has the same shape: base manifests and variant manifests are both complete, self-contained manifests that declare their own package.id and package.description. See docs/Manifest.md#conformance-and-terminology.",
   "type": "object",
-  "required": ["package"],
+  "required": [
+    "package"
+  ],
   "additionalProperties": true,
   "properties": {
-    "spec_version": {
+    "edgetx_format_version": {
       "type": "string",
-      "description": "Version of the EdgeTX package spec this manifest targets (e.g. \"1.0\"). Optional — absence means the manifest predates the 1.0 release. When present, must be a MAJOR.MINOR string. Tooling checks at runtime which versions it supports.",
-      "pattern": "^[0-9]+\\.[0-9]+$"
+      "description": "Revision of the EdgeTX package file format this manifest conforms to, as MAJOR.MINOR (e.g. \"1.0\"). Absent means \"1.0\". The same field and numbering appear in PKG/installed.yml. Tooling MUST refuse a MAJOR it does not know, and MUST process a known MAJOR with a higher MINOR while ignoring fields it does not recognise. See docs/Manifest.md.",
+      "pattern": "^(?![\\s\\S]*[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029])(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
     },
     "package": {
       "$ref": "#/$defs/packageBlock"
     },
-    "libraries": {
+    "requires": {
       "type": "array",
-      "items": { "$ref": "#/$defs/contentItem" },
-      "uniqueItems": true
+      "description": "Other packages this package needs. See docs/Manifest.md#requires--other-packages.",
+      "items": {
+        "$ref": "#/$defs/requirement"
+      },
+      "uniqueItems": true,
+      "maxItems": 64
+    },
+    "libraries": {
+      "$ref": "#/$defs/contentSection"
     },
     "tools": {
-      "type": "array",
-      "items": { "$ref": "#/$defs/contentItem" },
-      "uniqueItems": true
+      "$ref": "#/$defs/contentSection"
     },
     "widgets": {
-      "type": "array",
-      "items": { "$ref": "#/$defs/contentItem" },
-      "uniqueItems": true
+      "$ref": "#/$defs/contentSection"
     },
     "telemetry": {
-      "type": "array",
-      "items": { "$ref": "#/$defs/contentItem" },
-      "uniqueItems": true
+      "$ref": "#/$defs/contentSection"
     },
     "functions": {
-      "type": "array",
-      "items": { "$ref": "#/$defs/contentItem" },
-      "uniqueItems": true
+      "$ref": "#/$defs/contentSection"
     },
     "mixes": {
-      "type": "array",
-      "items": { "$ref": "#/$defs/contentItem" },
-      "uniqueItems": true
+      "$ref": "#/$defs/contentSection"
     },
     "sounds": {
-      "type": "array",
-      "items": { "$ref": "#/$defs/contentItem" },
-      "uniqueItems": true
+      "$ref": "#/$defs/contentSection"
+    },
+    "images": {
+      "$ref": "#/$defs/contentSection"
     },
     "themes": {
-      "type": "array",
-      "items": { "$ref": "#/$defs/contentItem" },
-      "uniqueItems": true
+      "$ref": "#/$defs/contentSection"
+    },
+    "files": {
+      "$ref": "#/$defs/contentSection"
     }
   },
   "$defs": {
+    "safeRelativePath": {
+      "type": "string",
+      "description": "A relative path using '/' separators. No '.' or '..' segment, no leading or trailing '/', no empty segment, no '\\', no character that terminates a line in any common runtime (U+0000-U+001F, U+007F-U+009F, U+2028, U+2029), no segment ending in a space or a dot (FAT32 strips those on create), and none of the characters FAT32 forbids in a name (: * ? \" < > |). The reserved 'PKG/' namespace is rejected case-insensitively, because a content `path` is the install destination when `dest` is absent. The single value '.' means the source root itself. See docs/Manifest.md#path-rules.",
+      "pattern": "^(?!.*(^|/)([Cc][Oo][Nn]|[Pp][Rr][Nn]|[Aa][Uu][Xx]|[Nn][Uu][Ll]|[Cc][Oo][Mm][1-9]|[Ll][Pp][Tt][1-9])(\\.[^/]*)?(/|$))(?![\\s\\S]*[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029])(?![Pp][Kk][Gg](/|$))(?:\\.|(?!/)(?!.*(^|/)\\.\\.?(/|$))(?!.*[ .](/|$))(?!.*//)(?!.*/$)[^\\\\:*?\"<>|]+)$",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "safeRelativeDest": {
+      "type": "string",
+      "description": "Like safeRelativePath, but '.' is rejected (it would install into the SD card root) and the reserved 'PKG/' namespace is rejected, compared case-insensitively because FAT32 does not distinguish 'PKG' from 'pkg'. See docs/Manifest.md#path-rules.",
+      "pattern": "^(?!.*(^|/)([Cc][Oo][Nn]|[Pp][Rr][Nn]|[Aa][Uu][Xx]|[Nn][Uu][Ll]|[Cc][Oo][Mm][1-9]|[Ll][Pp][Tt][1-9])(\\.[^/]*)?(/|$))(?![\\s\\S]*[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029])(?![Pp][Kk][Gg](/|$))(?!.*(^|/)\\.\\.?(/|$))(?!.*[ .](/|$))(?!/)(?!.*//)(?!.*/$)[^\\\\:*?\"<>|]+$",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "packageId": {
+      "type": "string",
+      "description": "Canonical package identifier: the git repo location without scheme, plus any subpackage path. At least host/owner/repo (3 slash-separated segments); the first segment must contain a dot. No segment may end in '.git', compared case-insensitively \u2014 the suffix belongs to a clone URL, not to an identity. The id is case-insensitive throughout and is lowercased before being stored or compared, because it becomes a FAT32 filename in PKG/files/. Capped at 249 characters so that name stays within the FAT32 limit. See docs/Manifest.md#package-id.",
+      "pattern": "^(?![\\s\\S]*[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029])(?!.*\\.[Gg][Ii][Tt](/|$))[a-zA-Z0-9][a-zA-Z0-9_.-]*\\.[a-zA-Z0-9_.-]+(/[a-zA-Z0-9][a-zA-Z0-9_.-]*){2,}$",
+      "maxLength": 249,
+      "examples": [
+        "github.com/ExpressLRS/Lua-Scripts",
+        "github.com/offer-shmuely/lua-scripts/log-viewer"
+      ]
+    },
     "packageBlock": {
       "type": "object",
-      "description": "Top-level package metadata. For base manifests, id and description are required. For variant manifests, id is inherited from base (omit it) and description is optional (can override base).",
+      "description": "Package metadata. `id` and `description` are required in every manifest, including variant manifests. `additionalProperties` is deliberately true: unknown keys must be ignorable so that a MINOR spec bump stays backward compatible.",
+      "required": [
+        "id",
+        "description"
+      ],
       "additionalProperties": true,
       "properties": {
         "id": {
-          "type": "string",
-          "description": "Canonical package identifier. Required for base manifests, inherited for variant manifests. Must be a URL-like path with at least host/owner/repo (3 slash-separated segments). First segment must contain a dot.",
-          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]*\\.[a-zA-Z0-9_.-]+(/[a-zA-Z0-9][a-zA-Z0-9_.-]*){2,}$",
-          "minLength": 5,
-          "maxLength": 256,
-          "examples": [
-            "github.com/ExpressLRS/Lua-Scripts",
-            "github.com/offer-shmuely/lua-scripts/log-viewer"
-          ]
+          "$ref": "#/$defs/packageId"
         },
         "name": {
           "type": "string",
-          "description": "Human-friendly display name. Falls back to id when absent.",
+          "description": "Human-friendly display name. Falls back to id when absent. Never affects install destinations.",
           "minLength": 1,
           "maxLength": 128
         },
         "description": {
           "type": "string",
-          "description": "Non-empty human-readable description of the package. Required for base manifests, optional (can override) for variants.",
+          "description": "Non-empty human-readable description of the package.",
           "minLength": 1,
           "maxLength": 1024
         },
         "version": {
           "type": "string",
-          "description": "Package version following semantic versioning (e.g. '1.2.3'). Optional but strongly recommended for update detection.",
-          "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?(\\+[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?$"
-        },
-        "category": {
-          "type": "string",
-          "description": "Package category for discovery and organization.",
-          "enum": ["telemetry", "widget", "tool", "theme", "sound", "utility", "game", "library", "other"]
+          "description": "Package version, semver. Update detection compares this value, so a package intended to be updatable SHOULD declare it and MUST bump it on each release.",
+          "pattern": "^(?![\\s\\S]*[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029])(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?(\\+[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?$"
         },
         "authors": {
           "type": "array",
           "description": "List of package authors.",
-          "items": { "$ref": "#/$defs/author" }
+          "items": {
+            "$ref": "#/$defs/author"
+          }
         },
         "urls": {
           "type": "array",
           "description": "Project-related URLs (homepage, repository, docs, etc.).",
-          "items": { "$ref": "#/$defs/projectUrl" }
+          "items": {
+            "$ref": "#/$defs/projectUrl"
+          }
         },
         "screenshots": {
           "type": "array",
-          "description": "Relative paths to screenshot image files.",
+          "description": "Relative paths to screenshot image files, resolved against the manifest directory.",
           "items": {
-            "type": "string",
-            "minLength": 1
+            "$ref": "#/$defs/repoRelativePath"
           }
         },
         "keywords": {
@@ -129,19 +148,30 @@
           "maxLength": 128
         },
         "source_dir": {
-          "type": "string",
-          "description": "Subdirectory containing source files, relative to the manifest.",
-          "minLength": 1
+          "description": "Source root(s) containing content, relative to the manifest. A single string or a list of strings; with a list, lookup follows declaration order and the first match wins. There is no fallback to the manifest directory when source_dir is declared.",
+          "oneOf": [
+            {
+              "$ref": "#/$defs/repoRelativePath"
+            },
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/repoRelativePath"
+              },
+              "minItems": 1,
+              "uniqueItems": true
+            }
+          ]
         },
         "min_edgetx_version": {
           "type": "string",
-          "description": "Minimum EdgeTX firmware version required. Must be a complete semantic version (no wildcards).",
-          "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+          "description": "Minimum EdgeTX firmware version required. Complete semver, no wildcard.",
+          "pattern": "^(?![\\s\\S]*[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029])(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
         },
         "max_edgetx_version": {
           "type": "string",
-          "description": "Maximum EdgeTX firmware version supported. May use 'x' as wildcard patch level (e.g., '2.13.x' means any 2.13.*).",
-          "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*|x)$"
+          "description": "Maximum EdgeTX firmware version supported. 'x' is allowed in the patch position only, and means any patch level within that MAJOR.MINOR (e.g. '2.13.x').",
+          "pattern": "^(?![\\s\\S]*[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029])(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*|x)$"
         },
         "binary": {
           "type": "boolean",
@@ -154,16 +184,40 @@
         },
         "variants": {
           "type": "array",
-          "description": "Alternate manifests for different radio hardware profiles.",
-          "items": { "$ref": "#/$defs/variant" },
+          "description": "Alternate manifests for different radio hardware profiles. A variant manifest MUST NOT itself declare variants. See docs/Manifest.md#variants.",
+          "items": {
+            "$ref": "#/$defs/variant"
+          },
           "minItems": 1
         }
-      }
+      },
+      "$comment": "additionalProperties is true so that unknown keys are ignored rather than rejected. A MINOR format bump may add optional fields here, and older tooling must still accept the manifest. See docs/Manifest.md#edgetx_format_version."
+    },
+    "requirement": {
+      "type": "object",
+      "description": "A dependency on another package.",
+      "required": [
+        "id"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/packageId"
+        },
+        "version": {
+          "type": "string",
+          "description": "Semver range the dependency's package.version must satisfy. Absent or '*' means any version. One comparator ('1.2.3', '=1.2.3', '^1.2.0', '~1.2.0', '>=1.2.0', '<2.0.0'), or two space-separated comparators forming a bounded range ('>=1.2.0 <2.0.0'). See docs/Manifest.md#version-ranges.",
+          "pattern": "^(\\*|([\\^~]|>=|<=|>|<|=)?(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?|(>=|>)?(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)? (<=|<)(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?)$"
+        }
+      },
+      "$comment": "additionalProperties is true so that unknown keys are ignored rather than rejected. A MINOR format bump may add optional fields here, and older tooling must still accept the manifest. See docs/Manifest.md#edgetx_format_version."
     },
     "author": {
       "type": "object",
-      "required": ["name"],
-      "additionalProperties": false,
+      "required": [
+        "name"
+      ],
+      "additionalProperties": true,
       "properties": {
         "name": {
           "type": "string",
@@ -173,14 +227,19 @@
         "email": {
           "type": "string",
           "format": "email",
-          "maxLength": 254
+          "maxLength": 254,
+          "description": "Author email. `format: email` is a weak assertion \u2014 it accepts `a@` and `@b.com` \u2014 so a manifest is not rejected over an unparseable address. See docs/Manifest.md#package-fields."
         }
-      }
+      },
+      "$comment": "additionalProperties is true so that unknown keys are ignored rather than rejected. A MINOR format bump may add optional fields here, and older tooling must still accept the manifest. See docs/Manifest.md#edgetx_format_version."
     },
     "projectUrl": {
       "type": "object",
-      "required": ["name", "url"],
-      "additionalProperties": false,
+      "required": [
+        "name",
+        "url"
+      ],
+      "additionalProperties": true,
       "properties": {
         "name": {
           "type": "string",
@@ -190,92 +249,113 @@
         "url": {
           "type": "string",
           "format": "uri",
-          "minLength": 1
+          "minLength": 1,
+          "pattern": "^(?![\\s\\S]*[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029])https?://[^\\s]+$",
+          "description": "Absolute URL using the http or https scheme. Other schemes are rejected: tooling may render these as links, and `javascript:` or `data:` would be an active-content sink for metadata fetched from a repository the tool does not control. Validated by pattern as well as by format, because the 'uri' format assertion is inert in validators lacking optional dependencies. See docs/Manifest.md#package-fields.",
+          "maxLength": 2048
         }
-      }
+      },
+      "$comment": "additionalProperties is true so that unknown keys are ignored rather than rejected. A MINOR format bump may add optional fields here, and older tooling must still accept the manifest. See docs/Manifest.md#edgetx_format_version."
     },
     "capabilities": {
       "type": "object",
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "display": {
           "$ref": "#/$defs/displayCapabilities"
         }
-      }
+      },
+      "$comment": "additionalProperties is true so that an older implementation can LOAD a newer manifest rather than reject it. It is NOT permission to add fields here in a MINOR bump: this object is used as a variant entry's selection filter, where every field feeds specificity and specificity chooses which build installs \u2014 so ignoring one installs a different variant. Adding a capability field is MAJOR. See docs/Manifest.md#edgetx_format_version."
     },
     "displayCapabilities": {
       "type": "object",
-      "description": "Display hardware requirements.",
-      "additionalProperties": false,
+      "description": "Display hardware requirements. Every field is optional; an omitted field matches anything.",
+      "additionalProperties": true,
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["bw", "colorlcd"],
+          "enum": [
+            "bw",
+            "colorlcd"
+          ],
           "description": "Required display type: 'bw' (black-and-white) or 'colorlcd' (color LCD)."
         },
         "resolution": {
           "type": "string",
           "description": "Required exact display resolution (e.g. '128x64', '480x272').",
-          "pattern": "^[1-9][0-9]*x[1-9][0-9]*$"
+          "pattern": "^(?![\\s\\S]*[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029])[1-9][0-9]*x[1-9][0-9]*$"
         },
         "touch": {
           "type": "boolean",
-          "description": "Set to true if a touchscreen is required."
+          "description": "true requires a touchscreen; false requires a non-touchscreen device; omitted matches both."
         }
-      }
+      },
+      "$comment": "additionalProperties is true so that unknown keys are ignored rather than rejected. A MINOR format bump may add optional fields here, and older tooling must still accept the manifest. See docs/Manifest.md#edgetx_format_version."
     },
     "variant": {
       "type": "object",
-      "description": "Variant entry in the base manifest's variants list.",
-      "required": ["path"],
-      "additionalProperties": false,
+      "description": "Variant entry in a base manifest's variants list. The filter here \u2014 capabilities and firmware bounds \u2014 is used for selection only; it is not merged into the variant manifest.",
+      "required": [
+        "path"
+      ],
+      "additionalProperties": true,
       "properties": {
         "path": {
           "type": "string",
-          "description": "Relative path to the variant manifest file. Must end with .yml or .yaml.",
-          "pattern": "^[^/\\\\][^\\\\]*\\.(yml|yaml)$",
-          "minLength": 5
+          "description": "Relative path to the variant manifest, resolved against the base manifest's directory. Must end in .yml or .yaml and must not escape that directory.",
+          "pattern": "^(?!.*(^|/)([Cc][Oo][Nn]|[Pp][Rr][Nn]|[Aa][Uu][Xx]|[Nn][Uu][Ll]|[Cc][Oo][Mm][1-9]|[Ll][Pp][Tt][1-9])(\\.[^/]*)?(/|$))(?![\\s\\S]*[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029])(?!/)(?!.*(^|/)\\.\\.?(/|$))(?!.*[ .](/|$))(?!.*//)[^\\\\:*?\"<>|]+\\.(yml|yaml)$",
+          "minLength": 5,
+          "maxLength": 255
         },
         "capabilities": {
           "$ref": "#/$defs/capabilities",
           "description": "Capability filter used to auto-select this variant."
+        },
+        "min_edgetx_version": {
+          "$ref": "#/$defs/packageBlock/properties/min_edgetx_version",
+          "description": "Selection filter: this variant is a candidate only when the running firmware is at least this version. Same grammar as the package-level field. Filter only \u2014 it does not constrain installation."
+        },
+        "max_edgetx_version": {
+          "$ref": "#/$defs/packageBlock/properties/max_edgetx_version",
+          "description": "Selection filter: this variant is a candidate only when the running firmware is at most this version. `x` allowed in the patch position, as at package level. Filter only \u2014 it does not constrain installation."
         }
-      }
+      },
+      "$comment": "additionalProperties is true so that an older implementation can LOAD a newer manifest rather than reject it. It is NOT permission to add filter fields in a MINOR bump: every field here feeds selection and specificity, and specificity chooses which build installs, so ignoring one installs a different variant. Adding a field to a variant entry is MAJOR. See docs/Manifest.md#edgetx_format_version."
+    },
+    "contentSection": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/contentItem"
+      },
+      "uniqueItems": true,
+      "maxItems": 512
     },
     "contentItem": {
       "type": "object",
       "description": "A single installable content item (tool, widget, library, etc.).",
-      "required": ["name", "path"],
-      "additionalProperties": false,
+      "required": [
+        "name",
+        "path"
+      ],
+      "additionalProperties": true,
       "properties": {
         "name": {
           "type": "string",
-          "description": "Human-readable name for this content item.",
+          "description": "Name for this content item. Identifies it in diagnostics; never used to build the install destination.",
           "minLength": 1,
           "maxLength": 128
         },
         "path": {
-          "type": "string",
-          "description": "Source path relative to the manifest (or source_dir). Also the SD card destination by default.",
-          "minLength": 1
+          "$ref": "#/$defs/repoRelativePath",
+          "description": "Source path relative to the source root. Also the SD card destination when `dest` is absent \u2014 and then it must additionally satisfy the destination rules, including the PKG/ reservation, which the allOf below enforces. With `dest` set it is a pure repository path and PKG/ is not reserved in it. A value of '.' means the source root itself and requires `dest`. See docs/Manifest.md#source-and-destination."
         },
         "dest": {
-          "type": "string",
-          "description": "Override SD card destination path. Required when path is '.'.",
-          "minLength": 1
-        },
-        "depends": {
-          "type": "array",
-          "description": "Names of library entries this content item depends on.",
-          "items": {
-            "type": "string",
-            "minLength": 1
-          },
-          "uniqueItems": true
+          "$ref": "#/$defs/safeRelativeDest",
+          "description": "SD card destination, relative to the SD card root. Required when `path` is '.'. Never inherits source_dir."
         },
         "exclude": {
           "type": "array",
-          "description": "Glob patterns for files to skip during copy.",
+          "description": "Glob patterns for files to skip during copy. See docs/Manifest.md#exclude-patterns.",
           "items": {
             "type": "string",
             "minLength": 1
@@ -283,10 +363,55 @@
         },
         "dev": {
           "type": "boolean",
-          "description": "Mark as a development-only dependency. Excluded from pkg install/update unless --dev is passed.",
+          "description": "Development-only item: excluded from install and update unless --dev is passed.",
           "default": false
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "path"
+            ],
+            "properties": {
+              "path": {
+                "const": "."
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "dest"
+            ],
+            "$comment": "path '.' means the manifest directory; without dest it would install into the SD card root."
+          }
+        },
+        {
+          "if": {
+            "not": {
+              "required": [
+                "dest"
+              ]
+            }
+          },
+          "then": {
+            "properties": {
+              "path": {
+                "$ref": "#/$defs/safeRelativePath"
+              }
+            },
+            "$comment": "With no dest, path IS the destination, so it takes the destination rules too \u2014 notably the PKG/ reservation. With a dest it is only a source path, and a repository is entitled to have a PKG/ directory of its own."
+          }
+        }
+      ],
+      "$comment": "additionalProperties is true so that unknown keys are ignored rather than rejected. A MINOR format bump may add optional fields here, and older tooling must still accept the manifest. See docs/Manifest.md#edgetx_format_version."
+    },
+    "repoRelativePath": {
+      "type": "string",
+      "description": "A relative path inside the package repository, never an install destination. Same rules as safeRelativePath except that 'PKG/' is not reserved, since nothing here is written to the SD card. See docs/Manifest.md#path-rules.",
+      "pattern": "^(?!.*(^|/)([Cc][Oo][Nn]|[Pp][Rr][Nn]|[Aa][Uu][Xx]|[Nn][Uu][Ll]|[Cc][Oo][Mm][1-9]|[Ll][Pp][Tt][1-9])(\\.[^/]*)?(/|$))(?![\\s\\S]*[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029])(?:\\.|(?!/)(?!.*(^|/)\\.\\.?(/|$))(?!.*[ .](/|$))(?!.*//)(?!.*/$)[^\\\\:*?\"<>|]+)$",
+      "minLength": 1,
+      "maxLength": 255
     }
   }
 }

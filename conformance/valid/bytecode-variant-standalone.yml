@@ -1,0 +1,24 @@
+# One variant manifest of a bytecode package — the file
+# `bytecode-variants.yml` names as `edgetx.etx211.yml`. Complete and
+# self-contained: its own id (matching the base), its own description, its own
+# `binary: true`, and its own package-level firmware bound.
+#
+# The bound here and the bound on the base's variant ENTRY are different things
+# doing different jobs. The entry's bound SELECTS this build; this one ENFORCES
+# it, and is what produces an error the user sees if they force an install on
+# firmware this bytecode will not run on. Both are checked, and so is the base's.
+edgetx_format_version: "1.0"
+
+package:
+  id: github.com/acme/telemetry-bytecode
+  name: Telemetry (precompiled, EdgeTX 2.11)
+  version: "2.0.0"
+  description: Precompiled telemetry widget for EdgeTX 2.11
+  license: GPL-3.0-only
+  binary: true
+  min_edgetx_version: "2.11.0"
+  max_edgetx_version: "2.11.x"
+
+widgets:
+  - name: TelemBytecode
+    path: WIDGETS/TelemBytecode

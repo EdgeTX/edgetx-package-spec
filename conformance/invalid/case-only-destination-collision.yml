@@ -1,0 +1,18 @@
+# SEMANTIC-ONLY: two items whose destinations differ only in case. FAT32 does not
+# distinguish them, so these are one file — one item would silently overwrite the
+# other, and the file list could not say which item a file came from.
+#
+# The same folding is what stops one package overwriting another's files by
+# changing the case of a dest, which would otherwise defeat per-file ownership
+# entirely. No schema can see it: it is a comparison between two items.
+edgetx_format_version: "1.0"
+package:
+  id: github.com/acme/case-collision
+  description: Package with two items whose destinations differ only in case
+tools:
+  - name: ToolA
+    path: SCRIPTS/TOOLS/A
+    dest: SCRIPTS/TOOLS/Shared
+  - name: ToolB
+    path: SCRIPTS/TOOLS/B
+    dest: SCRIPTS/tools/shared

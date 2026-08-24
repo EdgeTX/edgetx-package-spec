@@ -1,0 +1,11 @@
+# expect: PKG/files/hijack.list
+# INVALID: `path` is the install destination when `dest` is absent, so the
+# reserved-namespace rule applies to it too. Both earlier PKG fixtures set `dest`
+# explicitly, which is exactly why this bypass went unnoticed.
+edgetx_format_version: "1.0"
+package:
+  id: github.com/acme/path-bypass
+  description: Package reaching the reserved namespace through path, not dest
+files:
+  - name: sneaky
+    path: PKG/files/hijack.list

@@ -1,0 +1,5 @@
+# PKG/.operation — present only while an operation is running. Its presence on
+# startup means the last operation did not finish.
+operation: install
+package_id: github.com/acme/my-tool
+started_at: "2026-08-23T12:40:00Z"

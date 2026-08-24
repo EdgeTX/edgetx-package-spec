@@ -1,0 +1,6 @@
+# expect: 'operation' is a required property
+# INVALID: a marker must declare which operation was interrupted. The recovery
+# report State.md requires ("which package and which operation") cannot be
+# produced without it.
+package_id: github.com/acme/my-tool
+started_at: "2026-08-23T12:40:00Z"

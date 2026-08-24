@@ -1,11 +1,18 @@
-# Package with all optional fields populated
-spec_version: "1.0"
+# Every package-level field populated. Features that cannot coexist with these,
+# or with each other, live in their own fixtures:
+#
+#   variants     multi-variant.yml, variant-standalone.yml
+#   requires     with-requires.yml, bounded-requires-range.yml
+#   dest         path-dot-with-dest.yml, all-sections.yml
+#   dev          dev-content.yml
+#   source_dir   as a list: multiple-source-dirs.yml
+#
+edgetx_format_version: "1.0"
 package:
   id: github.com/comprehensive/full-example
   name: Comprehensive Package Example
   version: "1.0.0-beta.1+build.123"
   description: A package demonstrating all available manifest fields
-  category: utility
   authors:
     - name: John Doe
       email: john@example.com
@@ -39,8 +46,6 @@ libraries:
 tools:
   - name: MainTool
     path: SCRIPTS/TOOLS/MainTool
-    depends:
-      - UtilLib
     exclude:
       - "*.md"
       - "test/*"
@@ -48,5 +53,3 @@ tools:
 widgets:
   - name: MainWidget
     path: WIDGETS/MainWidget
-    depends:
-      - UtilLib

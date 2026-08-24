@@ -1,0 +1,11 @@
+# expect: 'ELRSLIBRARY' does not match
+# INVALID: `requires[].id` must be a canonical package id (host/owner/repo).
+# A bare library name is not a package reference.
+# The name is deliberately long enough to clear minLength, so this fixture
+# fails on the id pattern alone.
+edgetx_format_version: "1.0"
+package:
+  id: github.com/acme/needs-lib
+  description: Package requiring another package by a non-canonical id
+requires:
+  - id: ELRSLIBRARY

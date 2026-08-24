@@ -1,0 +1,10 @@
+# SEMANTIC-ONLY: a variant manifest must declare the same id as its base. This
+# file is a valid manifest on its own; it is only invalid when loaded through a
+# base manifest whose id differs, which JSON Schema cannot see.
+edgetx_format_version: "1.0"
+package:
+  id: github.com/acme/some-other-package
+  description: Variant manifest declaring an id that differs from its base
+widgets:
+  - name: MyWidget
+    path: WIDGETS/MyWidget

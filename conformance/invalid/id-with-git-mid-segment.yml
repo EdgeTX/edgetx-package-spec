@@ -1,0 +1,8 @@
+# expect: 'github\.com/acme/my\.git/subpkg' does not match
+# INVALID: the `.git` suffix is banned on every id segment, not only the last.
+# Allowing `my.git/subpkg` would alias one repository to two package identities
+# and produce a clone URL of `.../my.git.git`.
+edgetx_format_version: "1.0"
+package:
+  id: github.com/acme/my.git/subpkg
+  description: Subpackage whose repo segment keeps the .git suffix

@@ -1,142 +1,70 @@
 # EdgeTX Package Spec
 
-This repository is the canonical EdgeTX package specification repository, used by package authors and tooling maintainers.
+This repository is the canonical specification for EdgeTX packages: the
+`edgetx.yml` manifest that package authors write, and the on-card state that
+package management tooling maintains.
 
-Tooling implementation lives in [`EdgeTX/edgetx-package-tools`](https://github.com/EdgeTX/edgetx-package-tools). This repository defines the specification that tooling must implement.
+This README is an overview. It is **not normative** — see
+[Scope and conformance](#scope-and-conformance) below.
 
-## Repository contents
+**Start here:**
 
-- [`docs/GettingStarted.md`](./docs/GettingStarted.md) — quick start guide for package authors
-- [`docs/Manifest.md`](./docs/Manifest.md) — normative reference for the `edgetx.yml` manifest format
-- [`docs/State.md`](./docs/State.md) — normative reference for runtime state files written by package operations
-- [`docs/Implementation.md`](./docs/Implementation.md) — implementation guide with pseudocode for package manager developers
-- [`schema/edgetx-manifest.v1.json`](./schema/edgetx-manifest.v1.json) — JSON Schema for manifest validation
-- [`conformance/`](./conformance/) — test fixtures and validator for spec compliance
+| You are | Read |
+|---|---|
+| Making your Lua scripts installable | [docs/GettingStarted.md](./docs/GettingStarted.md) |
+| Building tooling — a CLI, browser tool, or firmware | [docs/Manifest.md](./docs/Manifest.md) and [docs/State.md](./docs/State.md), then [docs/Implementation.md](./docs/Implementation.md) |
+| Proposing a change to the specification | [CONTRIBUTING.md](./CONTRIBUTING.md) |
 
-## Scope
+## Repository layout
 
-This specification defines:
+| Path | What it is |
+|---|---|
+| [`docs/Manifest.md`](./docs/Manifest.md) | **Normative.** The `edgetx.yml` manifest format. |
+| [`docs/State.md`](./docs/State.md) | **Normative.** The state files written to the SD card. |
+| [`schema/edgetx-manifest.v1.json`](./schema/edgetx-manifest.v1.json) | **Normative.** Machine-checkable subset of the manifest format. |
+| [`schema/edgetx-state.v1.json`](./schema/edgetx-state.v1.json) | **Normative.** Machine-checkable subset of the state format. |
+| [`docs/Implementation.md`](./docs/Implementation.md) | Guidance for tooling authors — algorithms and worked examples. |
+| [`docs/GettingStarted.md`](./docs/GettingStarted.md) | Guide for package authors writing their first manifest. |
+| [`conformance/`](./conformance/) | Manifest fixtures, state fixtures, [`file-lists/`](./conformance/file-lists/), and the validator that checks them and every example in these docs. |
+| [`CHANGELOG.md`](./CHANGELOG.md) | Changes to this specification. |
 
-- package identity and metadata
-- supported package content sections:
-  - `libraries`
-  - `tools`
-  - `widgets`
-  - `telemetry`
-  - `functions`
-  - `mixes`
-  - `sounds`
-  - `themes`
+Tooling lives separately, in
+[`EdgeTX/edgetx-package-tools`](https://github.com/EdgeTX/edgetx-package-tools).
+Command examples in these documents use that tool's CLI, `edgetx-cli`.
+
+## Scope and conformance
+
+Normative: `docs/Manifest.md`, `docs/State.md`, and the two JSON Schemas.
+Together they define what an implementation must do.
+
+Non-normative: this README, `docs/Implementation.md` and
+`docs/GettingStarted.md`. Where they appear to disagree with a normative
+document, the normative document wins.
+
+The specification covers:
+
+- package identity, metadata and versioning
+- content sections: `libraries`, `tools`, `widgets`, `telemetry`, `functions`,
+  `mixes`, `sounds`, `images`, `themes`, `files`
 - source and destination path rules
-- local content dependencies (tools/widgets depending on libraries within the same package)
-- hardware capability constraints
-- package variants
-- subpackage layouts, including flat-file fallback layouts
-- state tracking for install, update, and remove operations
+- dependencies on other packages (`requires`)
+- hardware capability requirements and firmware version constraints
+- hardware variants of one package
+- multiple packages in one repository, each with its own manifest
+- the state tooling keeps on the SD card to make update and remove correct
 
-## Overview
-
-An EdgeTX package shall be described by an `edgetx.yml` manifest stored in the package repository. Tooling uses the manifest to determine:
-
-- package identity
-- source locations for package content
-- SD card installation destinations
-- local content dependencies (tools/widgets depending on libraries within the same package)
-- compatibility with radio hardware
-- available package variants
-
-This repository also defines the SD card state files used to track installed packages, selected variants, file ownership, and compatibility status.
-
-## Core concepts
-
-### Package identity
-
-Each package shall declare a canonical `id` that identifies the repository location:
+## A manifest at a glance
 
 ```yaml
-package:
-  id: github.com/ExpressLRS/Lua-Scripts
-```
+edgetx_format_version: "1.0"
 
-For subpackages, the `id` shall include the subdirectory path:
-
-```yaml
-package:
-  id: github.com/offer-shmuely/lua-scripts/log-viewer
-```
-
-### Package content model
-
-The manifest may define the following content sections:
-
-- `libraries`
-- `tools`
-- `widgets`
-- `telemetry`
-- `functions`
-- `mixes`
-- `sounds`
-- `themes`
-
-Content entries generally define:
-
-- `name`
-- `path`
-
-Content entries may also define:
-
-- `dest`
-- `depends`
-- `exclude`
-- `dev`
-
-### Source and destination paths
-
-- `path` identifies the source location in the package repository.
-- `dest` optionally overrides the SD card destination path.
-
-If `dest` is omitted, the installation destination defaults to `path`.
-
-### Hardware capabilities
-
-Packages may declare hardware capability requirements, including:
-
-- display type: `bw` or `colorlcd`
-- display resolution
-- touchscreen support
-
-Tooling shall use these constraints to detect incompatible packages before installation.
-
-### Variants
-
-Variants define alternate manifests for the same logical package, typically for different radio hardware profiles.
-
-The base manifest declares available variants and their capability filters. Tooling selects the best matching variant from the target radio capabilities unless the user explicitly selects another compatible variant.
-
-### Subpackages
-
-A repository may contain multiple independent packages. Each package has its own manifest and canonical `id`.
-
-### Runtime state files
-
-Package operations maintain state under:
-
-- `EDGETX/PKG/state/installed.yml`
-- `EDGETX/PKG/state/files.yml`
-
-These files record installed packages, selected variants, file ownership, compatibility status, and dependency relationships required for safe update and removal behavior.
-
-## Example manifest
-
-```yaml
-spec_version: "1.0"
 package:
   id: github.com/ExpressLRS/Lua-Scripts
   name: ExpressLRS
+  version: "3.1.2"
   description: ExpressLRS Lua scripts and widgets for EdgeTX
-  license: GPL-2.0
+  license: GPL-3.0-only
   min_edgetx_version: "2.12.0"
-  max_edgetx_version: "2.13.x"
 
 libraries:
   - name: ELRS
@@ -145,56 +73,53 @@ libraries:
 tools:
   - name: ExpressLRS
     path: SCRIPTS/TOOLS/ExpressLRS
-    depends:
-      - ELRS
 
 widgets:
   - name: ELRSTelemetry
     path: WIDGETS/ELRSTelemetry
-    depends:
-      - ELRS
 ```
 
-## Reference highlights
+`id` is where the package lives — the git clone URL without the scheme. `path`
+is where files are read from, and where they are installed unless `dest` says
+otherwise. The top-level `requires` names other packages this one needs.
 
-### Manifest reference
+## Key ideas
 
-[`docs/Manifest.md`](./docs/Manifest.md) defines:
+**Identity is location.** A package's `id` is its repository URL minus the
+scheme, plus any subpackage path. There is no separate registry of names.
 
-- package metadata
-- authors, URLs, screenshots, keywords, and license fields
-- source directories and install destinations
-- EdgeTX version constraints
-- bytecode support
-- radio capability requirements
-- variant selection behavior
-- subpackage layouts
-- flat-file fallback layouts for subpackages
+**Variants are one package, many builds.** A package with black-and-white and
+color LCD builds declares each as a variant with a hardware filter. Tooling
+picks the best match for the connected radio at install time. Every variant
+manifest is a complete, self-contained manifest sharing the base's `id`.
 
-### State reference
+**Subpackages are separate packages.** Several independent packages can live
+in one repository, each with its own manifest and its own `id`, installed and
+removed independently.
 
-[`docs/State.md`](./docs/State.md) defines:
+**State makes removal safe.** Tooling records what it installed, per file,
+under `PKG/` on the SD card. That is what lets it update or remove a package
+without guessing, and without touching files another package owns.
 
-- installed package tracking
-- selected variant persistence
-- file ownership and integrity tracking
-- compatibility status codes
-- shared library request tracking
-- cleanup behavior for update and remove operations
+## Validating
 
-## Intended consumers
+**Validating your own `edgetx.yml`** is covered in
+[GettingStarted § Validation](./docs/GettingStarted.md#validation). Use that —
+the command below checks *this repository*, not your manifest.
 
-This specification is intended for:
+**Checking this repository** (fixtures, schemas, and every example in the docs):
 
-- package authors
-- EdgeTX package tooling maintainers
-- validators and catalog implementations
-- installers, updaters, and related SD card management tools
+```sh
+pip install jsonschema PyYAML
+python3 conformance/run_tests.py
+```
 
 ## Contributing
 
-Specification changes should be proposed with documentation updates in the same change set. See [CONTRIBUTING.md](./CONTRIBUTING.md).
+Specification changes need the affected normative document, the schema, the
+conformance fixtures and the changelog updated in the same change set. See
+[CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ## License
 
-This repository is licensed under the GNU General Public License v2.0 (GPL-2.0). See [LICENSE](./LICENSE).
+GNU General Public License v2.0 (GPL-2.0). See [LICENSE](./LICENSE).

@@ -1,0 +1,11 @@
+# expect: 'SCRIPTS/TOOLS/CON\.lua' does not match
+# INVALID: a path segment that is a reserved device name. Windows cannot create
+# it, so tooling there could neither install the package nor honestly refuse it —
+# the same hazard class as the characters and trailing dots already banned.
+edgetx_format_version: "1.0"
+package:
+  id: github.com/acme/device-name
+  description: Package whose destination uses a reserved device name
+tools:
+  - name: MyTool
+    path: SCRIPTS/TOOLS/CON.lua

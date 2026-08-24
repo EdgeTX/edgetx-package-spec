@@ -1,0 +1,11 @@
+# expect: 'DOCS/a\\nSCRIPTS/TOOLS/victim\.lua' does not match
+# INVALID: `dest` contains a newline. State records one installed file per line,
+# so an embedded newline would forge an extra entry in the file list.
+edgetx_format_version: "1.0"
+package:
+  id: github.com/acme/newline-path
+  description: Package with a newline embedded in a destination path
+files:
+  - name: forged
+    path: extras/data.txt
+    dest: "DOCS/a\nSCRIPTS/TOOLS/victim.lua"

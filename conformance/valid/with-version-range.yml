@@ -1,5 +1,5 @@
 # Package with both min and max EdgeTX version constraints.
-spec_version: "1.0"
+edgetx_format_version: "1.0"
 package:
   id: github.com/acme/versioned-tool
   name: Versioned Tool

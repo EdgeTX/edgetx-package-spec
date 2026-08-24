@@ -1,0 +1,12 @@
+# expect: 'sub/\.\./\.\./evil\.yml' does not match
+# INVALID: variant `path` contains a '..' segment. Variant manifests must stay
+# inside the base manifest's directory.
+edgetx_format_version: "1.0"
+package:
+  id: github.com/acme/escape-variant
+  description: Package whose variant path escapes the manifest directory
+  variants:
+    - path: sub/../../evil.yml
+      capabilities:
+        display:
+          type: colorlcd

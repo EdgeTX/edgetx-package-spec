@@ -1,0 +1,3 @@
+# expect: /etc/passwd
+SCRIPTS/TOOLS/ok.lua
+/etc/passwd

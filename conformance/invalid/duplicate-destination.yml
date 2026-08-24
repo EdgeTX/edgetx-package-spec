@@ -1,0 +1,14 @@
+# SEMANTIC-ONLY: two content items resolve to the same SD card destination. One
+# would silently overwrite the other, and file ownership could not say which item
+# a file came from. Detectable only by resolving both destinations.
+edgetx_format_version: "1.0"
+package:
+  id: github.com/acme/colliding-dests
+  description: Package with two items installing to one destination
+tools:
+  - name: ToolA
+    path: SCRIPTS/TOOLS/A
+    dest: SCRIPTS/TOOLS/Shared
+  - name: ToolB
+    path: SCRIPTS/TOOLS/B
+    dest: SCRIPTS/TOOLS/Shared

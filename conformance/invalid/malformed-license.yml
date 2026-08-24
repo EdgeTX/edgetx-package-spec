@@ -1,0 +1,8 @@
+# SEMANTIC-ONLY: `license` must parse as an SPDX expression. JSON Schema can
+# check that it is a non-empty string but not that the identifier exists, since
+# that needs the SPDX identifier list.
+edgetx_format_version: "1.0"
+package:
+  id: github.com/acme/bad-license
+  description: Package whose license is not a valid SPDX expression
+  license: Definitely-Not-A-Real-License-9.9

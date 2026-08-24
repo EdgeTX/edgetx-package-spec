@@ -1,0 +1,15 @@
+# expect: 'commit' is a required property
+# INVALID: a package resolved from a tag must record the commit it resolved to.
+# Without it a force-pushed tag is undetectable and there is no way to say what
+# is actually installed.
+edgetx_format_version: "1.0"
+packages:
+  - id: github.com/acme/simple-tool
+    version: "1.0.0"
+    reason: explicit
+    requires: []
+    source:
+      repo: github.com/acme/simple-tool
+      channel: tag
+      ref: "v1.0.0"
+      manifest_path: "edgetx.yml"

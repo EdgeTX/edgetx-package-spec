@@ -1,0 +1,18 @@
+# `source_dir` as a list. Lookup follows declaration order and the first match
+# wins; there is still no fallback to the manifest directory, so a path missing
+# from every declared root is an error rather than a guess.
+edgetx_format_version: "1.0"
+package:
+  id: github.com/acme/split-source
+  description: Package whose content is split across two source roots
+  source_dir:
+    - src
+    - shared
+
+libraries:
+  - name: Shared
+    path: SCRIPTS/LIBS/Shared
+
+tools:
+  - name: MyTool
+    path: SCRIPTS/TOOLS/MyTool

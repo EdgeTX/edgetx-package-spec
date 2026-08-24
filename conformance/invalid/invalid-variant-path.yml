@@ -1,3 +1,4 @@
+# expect: 'edgetx\.color' does not match
 # INVALID: variant path does not end with .yml or .yaml.
 package:
   id: github.com/acme/bad-variant

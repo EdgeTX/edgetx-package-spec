@@ -1,0 +1,11 @@
+# expect: '\^1\.2\.3 <2\.0\.0' does not match
+# INVALID: `^` already denotes a bounded range, so pairing it with another bound
+# has no agreed meaning. A two-comparator range is a lower bound (>, >= or bare)
+# followed by an upper bound (< or <=), in that order.
+edgetx_format_version: "1.0"
+package:
+  id: github.com/acme/caret-pair
+  description: Package pairing a caret range with an upper bound
+requires:
+  - id: github.com/someone/elrs-libs
+    version: "^1.2.3 <2.0.0"

@@ -1,0 +1,23 @@
+# Cross-package dependencies via `requires`.
+# `requires` names other packages, fetched and installed before this one.
+edgetx_format_version: "1.0"
+package:
+  id: github.com/acme/telemetry-suite
+  name: Telemetry Suite
+  version: "1.4.0"
+  description: Telemetry widgets building on a shared ELRS library package
+  license: GPL-3.0-only
+  min_edgetx_version: "2.12.0"
+
+requires:
+  - id: github.com/someone/elrs-libs
+    version: "^2.0.0"
+  - id: github.com/someone/chart-libs      # no version: any is acceptable
+
+libraries:
+  - name: SuiteCommon
+    path: SCRIPTS/LIBS/SuiteCommon
+
+widgets:
+  - name: SuiteTelem
+    path: WIDGETS/SuiteTelem

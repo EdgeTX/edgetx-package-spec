@@ -1,0 +1,33 @@
+# The BASE manifest of a package that ships precompiled bytecode and no Lua
+# source. The firmware bounds on each variant entry are what pick the right
+# build, since bytecode is not portable across firmware generations and nothing
+# in `capabilities` distinguishes them — the radio is the same radio. `binary:
+# true` is what permits the .luac files to be installed at all, and it belongs on
+# the variant manifests that declare them.
+#
+# The third entry declares no filter, so it matches every radio at specificity 0:
+# the fallback slot. The bounded entries outrank it whenever the running
+# firmware version is known.
+#
+# Note where `binary` is NOT: this base declares no content, so it needs no
+# `binary` flag. Each variant manifest that actually ships .luac declares its own
+# — variant manifests are self-contained and nothing is inherited.
+edgetx_format_version: "1.0"
+
+package:
+  id: github.com/acme/telemetry-bytecode
+  name: Telemetry (precompiled)
+  version: "2.0.0"
+  description: Precompiled telemetry widget, one build per firmware generation
+  license: GPL-3.0-only
+  min_edgetx_version: "2.11.0"
+  variants:
+    - path: edgetx.etx211.yml
+      min_edgetx_version: "2.11.0"
+      max_edgetx_version: "2.11.x"
+    - path: edgetx.etx212.yml
+      min_edgetx_version: "2.12.0"
+      capabilities:
+        display:
+          type: colorlcd
+    - path: edgetx.source.yml

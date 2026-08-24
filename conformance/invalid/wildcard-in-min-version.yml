@@ -1,0 +1,10 @@
+# expect: '3\.x' does not match
+# INVALID: min_edgetx_version is not a complete semver. A minimum with an open
+# patch level is meaningless, so the wildcard form is allowed only in
+# max_edgetx_version.
+edgetx_format_version: "1.0"
+package:
+  id: github.com/acme/bad-version
+  description: Package whose minimum firmware version uses a wildcard
+  min_edgetx_version: "3.x"
+  max_edgetx_version: "3.0.0"

@@ -1,0 +1,9 @@
+# expect: 'not\-an\-email' is not a
+# INVALID: `authors[].email` must be a valid address.
+edgetx_format_version: "1.0"
+package:
+  id: github.com/acme/bad-email
+  description: Package with a malformed author email
+  authors:
+    - name: Someone
+      email: not-an-email

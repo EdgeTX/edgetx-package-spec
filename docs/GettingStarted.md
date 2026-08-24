@@ -1,24 +1,27 @@
 # Getting Started — Creating an EdgeTX Package
 
-This guide helps you create your first EdgeTX package manifest and make your Lua scripts installable via the EdgeTX package manager.
+This guide walks through making your Lua scripts installable by EdgeTX package
+tooling. It is a tutorial, not the specification — for the exact rules see
+[Manifest.md](./Manifest.md).
 
-## Prerequisites
+You need a git repository containing your scripts, laid out in the standard
+EdgeTX directories (`SCRIPTS/TOOLS/`, `WIDGETS/`, and so on).
 
-- A git repository containing your EdgeTX Lua scripts
-- Basic understanding of YAML syntax
-- Your scripts organized in standard EdgeTX directories (`SCRIPTS/TOOLS/`, `WIDGETS/`, etc.)
+One thing worth knowing before you start: **YAML cares about indentation.**
+Nesting is expressed by leading spaces, never tabs, and a line indented by the
+wrong amount means something different rather than being a syntax error. If you
+get a validation message that makes no sense, check the indentation against the
+examples here first — it is the most common cause.
 
-## Quick Start
+## 1. The smallest manifest that works
 
-### 1. Create `edgetx.yml` in your repository root
-
-Start with this minimal template:
+Create `edgetx.yml` in your repository root:
 
 ```yaml
-spec_version: "1.0"
+edgetx_format_version: "1.0"
 
 package:
-  id: github.com/your-username/your-repo-name
+  id: github.com/your-username/your-repo
   description: A brief description of what your package does
 
 tools:
@@ -26,98 +29,157 @@ tools:
     path: SCRIPTS/TOOLS/MyTool
 ```
 
-### 2. Fill in Required Fields
+Three things are doing the work here:
 
-At minimum, you need:
+- **`id`** is your repository location — the clone URL without `https://` or
+  `.git`. It is both your package's identity and where tooling fetches it from,
+  so it must match the real repository.
+- **`description`** is required and must be non-empty.
+- **`path`** is where your files live *and*, by default, where they are
+  installed on the SD card. `SCRIPTS/TOOLS/MyTool` in your repo installs to
+  `SCRIPTS/TOOLS/MyTool` on the card.
 
-- **`package.id`**: Your repository location (format: `host/owner/repo`)
-- **`package.description`**: A clear description of your package
-
-### 3. Add Optional Metadata
-
-Enhance discoverability and provide context:
+## 2. Add a version
 
 ```yaml
-spec_version: "1.0"
+package:
+  id: github.com/your-username/your-repo
+  description: A tool for managing telemetry data
+  version: "1.0.0"
+```
+
+`version` is optional, but **update detection compares it**. Without it,
+tooling cannot tell that a new release exists. Bump it on every release —
+tagging without bumping is the most common packaging mistake, and good tooling
+will warn you about it.
+
+## 3. Add the metadata that helps people find you
+
+```yaml
+edgetx_format_version: "1.0"
 
 package:
-  id: github.com/your-username/your-repo-name
-  name: "My Amazing Tool"           # Human-friendly display name
-  version: "1.0.0"                  # Semantic version (recommended!)
+  id: github.com/your-username/your-repo
+  name: "My Amazing Tool"           # display name; may contain spaces
+  version: "1.0.0"
   description: A tool for managing telemetry data on EdgeTX radios
-  category: telemetry               # Helps users discover your package
-  license: GPL-3.0-only             # SPDX license identifier
+  license: GPL-3.0-only             # SPDX expression
   authors:
     - name: Your Name
       email: you@example.com
   urls:
     - name: Homepage
-      url: https://github.com/your-username/your-repo-name
+      url: https://github.com/your-username/your-repo
   keywords: ["telemetry", "logging", "racing"]
-  min_edgetx_version: "2.12.0"      # Minimum compatible EdgeTX version
+  min_edgetx_version: "2.12.0"      # only if you need a specific version
 ```
 
-### 4. Declare Your Content
+Only set `min_edgetx_version` if your scripts actually need a firmware
+feature — it stops people on older firmware from installing, so an unnecessary
+bound just loses you users.
 
-Tell the package manager what to install:
+## 4. Declare your content
+
+Ten sections are available. Put each item in the most specific one that fits:
 
 ```yaml
-# Libraries (shared code used by other scripts)
-libraries:
+libraries:                          # shared code used by your other scripts
   - name: MyLib
     path: SCRIPTS/LIBS/MyLib
 
-# Tools (scripts in the Tools menu)
-tools:
+tools:                              # scripts in the Tools menu
   - name: MyTool
     path: SCRIPTS/TOOLS/MyTool
-    depends:                        # Optional: declare dependencies
-      - MyLib
 
-# Widgets (for color LCD radios)
-widgets:
+widgets:                            # screen widgets (color LCD radios)
   - name: MyWidget
     path: WIDGETS/MyWidget
-    depends:
-      - MyLib
 
-# Telemetry scripts
 telemetry:
   - name: MyTelem
     path: SCRIPTS/TELEMETRY/MyTelem
 
-# Function scripts
 functions:
   - name: MyFunc
     path: SCRIPTS/FUNCTIONS/MyFunc
 
-# Mix scripts
 mixes:
   - name: MyMix
     path: SCRIPTS/MIXES/MyMix
 
-# Sound packs
 sounds:
   - name: sounds-en
     path: SOUNDS/en
 
-# Themes
-themes:
+images:
+  - name: splash
+    path: IMAGES/splash
+
+themes:                             # color LCD only
   - name: MyTheme
     path: THEMES/MyTheme
+
+files:                              # anything with no home above
+  - name: docs
+    path: extras/manual.pdf
+    dest: DOCS/manual.pdf
 ```
 
-## Common Patterns
+A note on `name`: it identifies the item in diagnostics and **never** affects
+where files are installed — that is `path`, or `dest` if you set one. Naming a
+theme entry `MyTheme` does not put it in `THEMES/MyTheme`; its `path` does.
 
-### Hardware-Specific Variants
+Reach for `files` last. It is the escape hatch, and using it where a specific
+section applies makes your package harder for people to understand.
 
-If your package supports different radio types (B&W vs color LCD), use variants:
+## Common patterns
+
+### Installing somewhere other than the source location
+
+Set `dest`. This matters most when the manifest lives inside the content
+directory — common for themes:
 
 ```yaml
-# edgetx.yml (base manifest)
-spec_version: "1.0"
+# THEMES/Bionic_Theme/edgetx.yml
 package:
-  id: github.com/your-username/your-repo-name
+  id: github.com/your-username/bionic-theme
+  description: Bionic theme for color LCD radios
+themes:
+  - name: Bionic_Theme
+    path: .                       # the manifest's own directory
+    dest: THEMES/Bionic_Theme     # required, because path is '.'
+```
+
+`dest` is relative to the SD card root and never inherits `source_dir`.
+
+`path: .` does not put your `.git` directory on the card. Version-control
+metadata and the manifest files themselves are skipped automatically — you do
+not need to `exclude` them.
+
+### Source in a subdirectory
+
+If your scripts live under `src/`, declare it:
+
+```yaml
+package:
+  source_dir: src                 # or a list: [src, shared]
+```
+
+All `path` values then resolve under `src/`. There is **no fallback** to the
+repository root: if a `path` does not exist under a declared `source_dir`, that
+is an error. This is deliberate — a typo in `source_dir` fails loudly instead
+of quietly installing the wrong files.
+
+### Hardware variants
+
+If you ship genuinely different builds for black-and-white and color LCD
+radios, declare variants. The base manifest lists them with a hardware filter:
+
+```yaml
+# edgetx.yml — base
+edgetx_format_version: "1.0"
+package:
+  id: github.com/your-username/your-repo
   description: Multi-platform widget
   variants:
     - path: edgetx.bw128x64.yml
@@ -131,177 +193,192 @@ package:
           type: colorlcd
 ```
 
-Then create variant files that only list their specific content:
+Each variant is a **complete manifest** that repeats the same `id` and lists
+only its own content:
 
 ```yaml
 # edgetx.color.yml
+edgetx_format_version: "1.0"
 package:
+  id: github.com/your-username/your-repo    # same id as the base
   description: My Widget (Color LCD)
-
 widgets:
   - name: MyWidget
     path: WIDGETS/MyWidget-color
 ```
 
-### Subpackages
+Tooling picks the best match for the connected radio, preferring the most
+specific filter. Only use variants when you really have hardware-specific
+implementations — if one build works everywhere, declaring
+`capabilities.display.type` on the package is simpler.
 
-Multiple independent packages in one repository:
+### Shipping precompiled bytecode
 
+If you ship `.luac` instead of Lua source, set `binary: true` — without it every
+`.luac` is skipped and your package installs nothing. Bytecode is not portable
+across firmware generations, so ship one build per generation and let the
+firmware bounds on each variant entry choose:
+
+```yaml
+package:
+  id: github.com/your-username/your-repo
+  description: Precompiled widget
+  binary: true
+  variants:
+    - path: edgetx.etx211.yml
+      min_edgetx_version: "2.11.0"
+      max_edgetx_version: "2.11.x"
+    - path: edgetx.etx212.yml
+      min_edgetx_version: "2.12.0"
 ```
-your-repo/
-├── tool-a/
-│   └── edgetx.yml              # id: github.com/.../your-repo/tool-a
-└── tool-b/
-    └── edgetx.yml              # id: github.com/.../your-repo/tool-b
+
+Put `binary: true` in each **variant** manifest, not the base — variant manifests
+are self-contained and inherit nothing, so a flag on a base that declares no
+content does nothing and your `.luac` files are silently skipped.
+
+The bounds on a variant *entry* only **choose** a build. To say your package will
+not run on a firmware version at all, set `min_edgetx_version` on `package` in
+the variant's own manifest — that is the one that **enforces** it and produces an
+error the user sees. Setting both is normal, and both are checked.
+
+### Requiring another package
+
+Use `requires` when your scripts need a library that ships as a *separate*
+package:
+
+```yaml
+requires:
+  - id: github.com/someone/elrs-libs
+    version: "^2.0.0"             # optional; omit to accept any version
 ```
 
-Each subpackage has its own full manifest with a unique ID that includes the subdirectory path.
+Tooling installs it before your package. Ranges may be exact (`1.2.3`), caret
+(`^1.2.0`), tilde (`~1.2.0`), a comparison (`>=1.2.0`), or two comparators for a
+bounded range (`>=1.2.0 <2.0.0`). What each form matches exactly is in
+[Manifest.md § Version ranges](./Manifest.md#version-ranges) — caret and tilde
+differ between package managers, so it is worth checking rather than assuming.
 
-### Development Dependencies
+`requires` is only for another repository. Code inside your own manifest needs
+no declaration — everything a package ships installs and is removed together.
 
-Mark libraries or tools that are only needed during development:
+### Development-only content
+
+Mark test harnesses and debug tools so they do not reach users. Nothing else
+in your manifest needs to know: all of a package's content installs and is
+removed together.
 
 ```yaml
 libraries:
   - name: TestUtils
     path: SCRIPTS/TestUtils
-    dev: true                     # Won't be installed by default
+    dev: true
 ```
 
-### Local Library Dependencies
+Dev items are skipped by install and update unless `--dev` is passed to *that*
+invocation — it is never remembered from a previous one.
 
-If your tools or widgets depend on shared library code within the same package, declare the libraries and reference them:
+### Excluding files
 
 ```yaml
-libraries:
-  - name: CommonLib
-    path: SCRIPTS/LIBS/CommonLib
-
 tools:
-  - name: ToolA
-    path: SCRIPTS/TOOLS/ToolA
-    depends:
-      - CommonLib                 # References library name above
-
-widgets:
-  - name: WidgetB
-    path: WIDGETS/WidgetB
-    depends:
-      - CommonLib                 # Same library used by both
+  - name: MyTool
+    path: SCRIPTS/TOOLS/MyTool
+    exclude:
+      - "*.md"          # top-level .md only; use **/*.md for every depth
+      - "test/**"       # the whole subtree — so would "test/*", since a
+                        # directory match takes its contents with it
+      - "src/**/tmp"    # `**/` matches zero directories too, so this also
+                        # excludes src/tmp
 ```
-
-**Important**: Dependencies are **local to the package** — the `depends` field references library entries declared in the same manifest. All libraries and content items are installed together as part of the package.
 
 ## Validation
 
-### Local Validation
+Validate against the schema from a **specific tagged release**. Both `main` and
+`releases/latest` move, so neither is reproducible — put the version you want in
+the URL and change it when you choose to.
 
-1. Install dependencies:
-   ```bash
-   pip install jsonschema PyYAML
-   ```
+> **Until the first release is tagged**, no release asset exists. Use the schema
+> from the repository — `curl -LO`
+> `https://raw.githubusercontent.com/EdgeTX/edgetx-package-spec/main/schema/edgetx-manifest.v1.json`
+> — and switch to the pinned form below as soon as `v1.0.0` exists.
 
-2. Download the schema:
-   ```bash
-   curl -O https://raw.githubusercontent.com/EdgeTX/edgetx-package-spec/main/schema/edgetx-manifest.v1.json
-   ```
-
-3. Validate your manifest:
-   ```python
-   import json
-   import jsonschema
-   import yaml
-   
-   schema = json.load(open('edgetx-manifest.v1.json'))
-   manifest = yaml.safe_load(open('edgetx.yml'))
-   
-   jsonschema.Draft202012Validator(schema).validate(manifest)
-   print("✓ Valid manifest!")
-   ```
-
-### CI/CD Integration
-
-Add GitHub Actions workflow to validate on every commit:
-
-```yaml
-# .github/workflows/validate-manifest.yml
-name: Validate Package Manifest
-
-on: [push, pull_request]
-
-jobs:
-  validate:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      
-      - name: Install dependencies
-        run: pip install jsonschema PyYAML
-      
-      - name: Download schema
-        run: |
-          curl -o schema.json https://raw.githubusercontent.com/EdgeTX/edgetx-package-spec/main/schema/edgetx-manifest.v1.json
-      
-      - name: Validate manifest
-        run: |
-          python -c "
-          import json, sys
-          import jsonschema, yaml
-          schema = json.load(open('schema.json'))
-          manifest = yaml.safe_load(open('edgetx.yml'))
-          try:
-              jsonschema.Draft202012Validator(schema).validate(manifest)
-              print('✓ Valid manifest')
-          except jsonschema.ValidationError as e:
-              print(f'✗ Invalid manifest: {e.message}')
-              sys.exit(1)
-          "
+```sh
+pip install check-jsonschema
+curl -LO https://github.com/EdgeTX/edgetx-package-spec/releases/download/v1.0.0/edgetx-manifest.v1.json
+check-jsonschema --schemafile edgetx-manifest.v1.json edgetx.yml
 ```
 
-## Best Practices
+On Windows, the same thing in PowerShell:
 
-1. **Always specify `spec_version`**: Use `spec_version: "1.0"` to indicate your manifest follows the 1.0 spec.
+```powershell
+pip install check-jsonschema
+Invoke-WebRequest -OutFile edgetx-manifest.v1.json https://github.com/EdgeTX/edgetx-package-spec/releases/download/v1.0.0/edgetx-manifest.v1.json
+check-jsonschema --schemafile edgetx-manifest.v1.json edgetx.yml
+```
 
-2. **Include a version field**: While optional, `package.version` is strongly recommended for update detection.
+As a GitHub Actions step:
 
-3. **Choose the right category**: Use the most specific category that fits your package (helps users discover it).
+```yaml
+- uses: actions/checkout@v4
+- name: Validate edgetx.yml
+  run: |
+    pip install check-jsonschema
+    curl -LO https://github.com/EdgeTX/edgetx-package-spec/releases/download/v1.0.0/edgetx-manifest.v1.json
+    check-jsonschema --schemafile edgetx-manifest.v1.json edgetx.yml
+```
 
-4. **Declare dependencies**: If your script uses shared libraries, declare them in `depends`.
+Substitute the release you want for `v1.0.0`. The schema's own `$id` points at
+`main`, but that is an identifier, not a fetch instruction — what matters is the
+file you actually download, and pinning that means a spec change cannot break
+your build without you choosing it.
 
-5. **Set version constraints**: Use `min_edgetx_version` if your package requires specific EdgeTX features.
+The schema catches structural problems: missing required fields, bad version
+strings, unsafe paths. Some rules need your source tree present and are
+checked by tooling at install time — that your content paths exist, and that
+screenshots are where you said. Others need only the manifest but still cannot
+be expressed in a schema, such as whether two content items would install to the
+same place. Running an install against a simulator SD card is the real test.
 
-6. **Test on target hardware**: Validate your package installs correctly on the actual radio types you support.
+## Checklist before you publish
 
-7. **Use variants wisely**: Only create variants when you truly have hardware-specific implementations, not just for different user preferences.
+- `id` matches your real repository URL
+- `version` is set, and you remember to bump it each release
+- `min_edgetx_version` is set only if you genuinely need it
+- every `path` exists
+- you installed it onto a real SD card, or a simulator one, and it worked
 
-8. **Keep it simple**: Start minimal and add fields as needed. Don't pre-optimize.
+## Publishing
+
+1. Commit `edgetx.yml`.
+2. Tag a release: `git tag v1.0.0 && git push --tags`.
+3. Users install with `edgetx-cli pkg install your-username/your-repo`.
+
+Tooling resolves the highest semver tag by default, so tagging is what makes a
+release visible. Users can pin explicitly with
+`your-username/your-repo@v1.0.0`.
 
 ## Examples
 
-See the [conformance test fixtures](https://github.com/EdgeTX/edgetx-package-spec/tree/main/conformance/valid) for complete working examples:
+Complete working manifests live in
+[`conformance/valid/`](../conformance/valid/):
 
-- **[simple-tool.yml](../conformance/valid/simple-tool.yml)**: Absolute minimum manifest
-- **[with-library-deps.yml](../conformance/valid/with-library-deps.yml)**: Package with library dependencies
-- **[multi-variant.yml](../conformance/valid/multi-variant.yml)**: B&W and color LCD variants
-- **[max-fields.yml](../conformance/valid/max-fields.yml)**: Comprehensive example with all fields
+| Fixture | Shows |
+|---|---|
+| `simple-tool.yml` | The minimum viable manifest |
+| `with-library-deps.yml` | A shared library beside the scripts that use it |
+| `with-requires.yml` | Depending on another package |
+| `multi-variant.yml` | Black-and-white and color LCD variants |
+| `variant-standalone.yml` | What a variant manifest looks like |
+| `all-sections.yml` | Every content section |
+| `max-fields.yml` | Every package-level field populated |
+| `unknown-fields.yml` | Why an unknown field does not break your manifest |
+| `bytecode-variants.yml` | Precompiled `.luac`, one build per firmware generation |
+| `bytecode-variant-standalone.yml` | One bytecode variant manifest, with `binary` where it belongs |
+| `pkg-dir-as-source.yml` | A repo with its own `PKG/` directory, installed elsewhere |
 
-## Need Help?
+## Help
 
-- 📖 Full specification: [docs/Manifest.md](./Manifest.md)
-- 🔧 Implementation guide: [docs/Implementation.md](./Implementation.md)
-- 🐛 Report issues: [GitHub Issues](https://github.com/EdgeTX/edgetx-package-spec/issues)
-- 💬 Ask questions: EdgeTX Discord #lua-development channel
-
-## Next Steps
-
-Once you have a valid `edgetx.yml`:
-
-1. Commit it to your repository
-2. Tag a release (e.g., `v1.0.0`)
-3. Submit your package to the EdgeTX package catalog (coming soon)
-4. Users can install via: `pkg install your-username/your-repo-name`
+- Specification: [Manifest.md](./Manifest.md)
+- Tooling guidance: [Implementation.md](./Implementation.md)
+- Issues: <https://github.com/EdgeTX/edgetx-package-spec/issues>
+- EdgeTX Discord, `#lua-development`

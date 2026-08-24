@@ -1,0 +1,10 @@
+# expect: 'SCRIPTS\\\\TOOLS\\\\MyTool' does not match
+# INVALID: content item `path` uses a backslash separator. Paths on a FAT32 SD
+# card use '/' only.
+edgetx_format_version: "1.0"
+package:
+  id: github.com/acme/backslash
+  description: Tool with a Windows-style path separator
+tools:
+  - name: MyTool
+    path: SCRIPTS\TOOLS\MyTool

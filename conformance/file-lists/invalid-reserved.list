@@ -1,0 +1,3 @@
+# expect: PKG/installed\.yml
+SCRIPTS/TOOLS/ok.lua
+PKG/installed.yml

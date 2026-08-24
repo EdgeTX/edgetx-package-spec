@@ -1,0 +1,11 @@
+# expect: '\.' does not match
+# INVALID: `dest` may not be `.` — that would install the item into the SD card
+# root. `path` may be `.`; `dest` may not.
+edgetx_format_version: "1.0"
+package:
+  id: github.com/acme/dest-dot
+  description: Theme whose destination is the SD card root
+themes:
+  - name: MyTheme
+    path: THEMES/MyTheme
+    dest: .

@@ -1,6 +1,6 @@
 # Subpackage: a package that lives inside a multi-package repository.
 # The id includes the subdirectory path after host/owner/repo.
-spec_version: "1.0"
+edgetx_format_version: "1.0"
 package:
   id: github.com/offer-shmuely/lua-scripts/log-viewer
   name: Log Viewer

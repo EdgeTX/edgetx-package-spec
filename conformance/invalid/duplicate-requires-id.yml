@@ -1,0 +1,13 @@
+# SEMANTIC-ONLY: two `requires` entries name the same package with different
+# ranges. `uniqueItems` compares whole objects, so JSON Schema cannot express
+# uniqueness by a single property. Combining ranges is the author's job — write
+# ">=1.2.0 <2.0.0", not two entries.
+edgetx_format_version: "1.0"
+package:
+  id: github.com/acme/double-require
+  description: Package requiring one dependency twice with conflicting ranges
+requires:
+  - id: github.com/someone/elrs-libs
+    version: "^1.0.0"
+  - id: github.com/someone/elrs-libs
+    version: "^2.0.0"

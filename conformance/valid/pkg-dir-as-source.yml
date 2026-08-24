@@ -1,0 +1,15 @@
+# A repository that happens to have its own PKG/ directory. `PKG/` is reserved on
+# the SD CARD, not in a source tree, so this is legal precisely because `dest` is
+# set: nothing is written to the card under that name. Without a `dest` the same
+# path would be the destination and would be rejected.
+edgetx_format_version: "1.0"
+
+package:
+  id: github.com/acme/pkg-named-dir
+  version: "1.0.0"
+  description: A repository whose source tree contains a PKG directory
+
+files:
+  - name: packaged
+    path: PKG/prebuilt
+    dest: SCRIPTS/TOOLS/Prebuilt

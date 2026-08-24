@@ -1,0 +1,12 @@
+# expect: 'pkg/installed\.yml' does not match
+# INVALID: the reserved namespace is compared case-insensitively. FAT32 does not
+# distinguish `pkg/` from `PKG/`, so a lowercase spelling reaches exactly the
+# same directory as the uppercase one.
+edgetx_format_version: "1.0"
+package:
+  id: github.com/acme/state-clobber-lower
+  description: Package reaching the reserved namespace through a lowercase spelling
+files:
+  - name: sneaky
+    path: extras/data.txt
+    dest: pkg/installed.yml

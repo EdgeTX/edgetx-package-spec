@@ -1,0 +1,1034 @@
+# expect: Tool0512.*is too long
+# INVALID: more than 512 content items in one section. The cap exists so a radio
+# can refuse a hostile manifest before running out of memory.
+edgetx_format_version: "1.0"
+package:
+  id: github.com/acme/too-many-tools
+  description: Package declaring more tools in one section than the cap allows
+tools:
+  - name: Tool0000
+    path: SCRIPTS/TOOLS/T0000
+  - name: Tool0001
+    path: SCRIPTS/TOOLS/T0001
+  - name: Tool0002
+    path: SCRIPTS/TOOLS/T0002
+  - name: Tool0003
+    path: SCRIPTS/TOOLS/T0003
+  - name: Tool0004
+    path: SCRIPTS/TOOLS/T0004
+  - name: Tool0005
+    path: SCRIPTS/TOOLS/T0005
+  - name: Tool0006
+    path: SCRIPTS/TOOLS/T0006
+  - name: Tool0007
+    path: SCRIPTS/TOOLS/T0007
+  - name: Tool0008
+    path: SCRIPTS/TOOLS/T0008
+  - name: Tool0009
+    path: SCRIPTS/TOOLS/T0009
+  - name: Tool0010
+    path: SCRIPTS/TOOLS/T0010
+  - name: Tool0011
+    path: SCRIPTS/TOOLS/T0011
+  - name: Tool0012
+    path: SCRIPTS/TOOLS/T0012
+  - name: Tool0013
+    path: SCRIPTS/TOOLS/T0013
+  - name: Tool0014
+    path: SCRIPTS/TOOLS/T0014
+  - name: Tool0015
+    path: SCRIPTS/TOOLS/T0015
+  - name: Tool0016
+    path: SCRIPTS/TOOLS/T0016
+  - name: Tool0017
+    path: SCRIPTS/TOOLS/T0017
+  - name: Tool0018
+    path: SCRIPTS/TOOLS/T0018
+  - name: Tool0019
+    path: SCRIPTS/TOOLS/T0019
+  - name: Tool0020
+    path: SCRIPTS/TOOLS/T0020
+  - name: Tool0021
+    path: SCRIPTS/TOOLS/T0021
+  - name: Tool0022
+    path: SCRIPTS/TOOLS/T0022
+  - name: Tool0023
+    path: SCRIPTS/TOOLS/T0023
+  - name: Tool0024
+    path: SCRIPTS/TOOLS/T0024
+  - name: Tool0025
+    path: SCRIPTS/TOOLS/T0025
+  - name: Tool0026
+    path: SCRIPTS/TOOLS/T0026
+  - name: Tool0027
+    path: SCRIPTS/TOOLS/T0027
+  - name: Tool0028
+    path: SCRIPTS/TOOLS/T0028
+  - name: Tool0029
+    path: SCRIPTS/TOOLS/T0029
+  - name: Tool0030
+    path: SCRIPTS/TOOLS/T0030
+  - name: Tool0031
+    path: SCRIPTS/TOOLS/T0031
+  - name: Tool0032
+    path: SCRIPTS/TOOLS/T0032
+  - name: Tool0033
+    path: SCRIPTS/TOOLS/T0033
+  - name: Tool0034
+    path: SCRIPTS/TOOLS/T0034
+  - name: Tool0035
+    path: SCRIPTS/TOOLS/T0035
+  - name: Tool0036
+    path: SCRIPTS/TOOLS/T0036
+  - name: Tool0037
+    path: SCRIPTS/TOOLS/T0037
+  - name: Tool0038
+    path: SCRIPTS/TOOLS/T0038
+  - name: Tool0039
+    path: SCRIPTS/TOOLS/T0039
+  - name: Tool0040
+    path: SCRIPTS/TOOLS/T0040
+  - name: Tool0041
+    path: SCRIPTS/TOOLS/T0041
+  - name: Tool0042
+    path: SCRIPTS/TOOLS/T0042
+  - name: Tool0043
+    path: SCRIPTS/TOOLS/T0043
+  - name: Tool0044
+    path: SCRIPTS/TOOLS/T0044
+  - name: Tool0045
+    path: SCRIPTS/TOOLS/T0045
+  - name: Tool0046
+    path: SCRIPTS/TOOLS/T0046
+  - name: Tool0047
+    path: SCRIPTS/TOOLS/T0047
+  - name: Tool0048
+    path: SCRIPTS/TOOLS/T0048
+  - name: Tool0049
+    path: SCRIPTS/TOOLS/T0049
+  - name: Tool0050
+    path: SCRIPTS/TOOLS/T0050
+  - name: Tool0051
+    path: SCRIPTS/TOOLS/T0051
+  - name: Tool0052
+    path: SCRIPTS/TOOLS/T0052
+  - name: Tool0053
+    path: SCRIPTS/TOOLS/T0053
+  - name: Tool0054
+    path: SCRIPTS/TOOLS/T0054
+  - name: Tool0055
+    path: SCRIPTS/TOOLS/T0055
+  - name: Tool0056
+    path: SCRIPTS/TOOLS/T0056
+  - name: Tool0057
+    path: SCRIPTS/TOOLS/T0057
+  - name: Tool0058
+    path: SCRIPTS/TOOLS/T0058
+  - name: Tool0059
+    path: SCRIPTS/TOOLS/T0059
+  - name: Tool0060
+    path: SCRIPTS/TOOLS/T0060
+  - name: Tool0061
+    path: SCRIPTS/TOOLS/T0061
+  - name: Tool0062
+    path: SCRIPTS/TOOLS/T0062
+  - name: Tool0063
+    path: SCRIPTS/TOOLS/T0063
+  - name: Tool0064
+    path: SCRIPTS/TOOLS/T0064
+  - name: Tool0065
+    path: SCRIPTS/TOOLS/T0065
+  - name: Tool0066
+    path: SCRIPTS/TOOLS/T0066
+  - name: Tool0067
+    path: SCRIPTS/TOOLS/T0067
+  - name: Tool0068
+    path: SCRIPTS/TOOLS/T0068
+  - name: Tool0069
+    path: SCRIPTS/TOOLS/T0069
+  - name: Tool0070
+    path: SCRIPTS/TOOLS/T0070
+  - name: Tool0071
+    path: SCRIPTS/TOOLS/T0071
+  - name: Tool0072
+    path: SCRIPTS/TOOLS/T0072
+  - name: Tool0073
+    path: SCRIPTS/TOOLS/T0073
+  - name: Tool0074
+    path: SCRIPTS/TOOLS/T0074
+  - name: Tool0075
+    path: SCRIPTS/TOOLS/T0075
+  - name: Tool0076
+    path: SCRIPTS/TOOLS/T0076
+  - name: Tool0077
+    path: SCRIPTS/TOOLS/T0077
+  - name: Tool0078
+    path: SCRIPTS/TOOLS/T0078
+  - name: Tool0079
+    path: SCRIPTS/TOOLS/T0079
+  - name: Tool0080
+    path: SCRIPTS/TOOLS/T0080
+  - name: Tool0081
+    path: SCRIPTS/TOOLS/T0081
+  - name: Tool0082
+    path: SCRIPTS/TOOLS/T0082
+  - name: Tool0083
+    path: SCRIPTS/TOOLS/T0083
+  - name: Tool0084
+    path: SCRIPTS/TOOLS/T0084
+  - name: Tool0085
+    path: SCRIPTS/TOOLS/T0085
+  - name: Tool0086
+    path: SCRIPTS/TOOLS/T0086
+  - name: Tool0087
+    path: SCRIPTS/TOOLS/T0087
+  - name: Tool0088
+    path: SCRIPTS/TOOLS/T0088
+  - name: Tool0089
+    path: SCRIPTS/TOOLS/T0089
+  - name: Tool0090
+    path: SCRIPTS/TOOLS/T0090
+  - name: Tool0091
+    path: SCRIPTS/TOOLS/T0091
+  - name: Tool0092
+    path: SCRIPTS/TOOLS/T0092
+  - name: Tool0093
+    path: SCRIPTS/TOOLS/T0093
+  - name: Tool0094
+    path: SCRIPTS/TOOLS/T0094
+  - name: Tool0095
+    path: SCRIPTS/TOOLS/T0095
+  - name: Tool0096
+    path: SCRIPTS/TOOLS/T0096
+  - name: Tool0097
+    path: SCRIPTS/TOOLS/T0097
+  - name: Tool0098
+    path: SCRIPTS/TOOLS/T0098
+  - name: Tool0099
+    path: SCRIPTS/TOOLS/T0099
+  - name: Tool0100
+    path: SCRIPTS/TOOLS/T0100
+  - name: Tool0101
+    path: SCRIPTS/TOOLS/T0101
+  - name: Tool0102
+    path: SCRIPTS/TOOLS/T0102
+  - name: Tool0103
+    path: SCRIPTS/TOOLS/T0103
+  - name: Tool0104
+    path: SCRIPTS/TOOLS/T0104
+  - name: Tool0105
+    path: SCRIPTS/TOOLS/T0105
+  - name: Tool0106
+    path: SCRIPTS/TOOLS/T0106
+  - name: Tool0107
+    path: SCRIPTS/TOOLS/T0107
+  - name: Tool0108
+    path: SCRIPTS/TOOLS/T0108
+  - name: Tool0109
+    path: SCRIPTS/TOOLS/T0109
+  - name: Tool0110
+    path: SCRIPTS/TOOLS/T0110
+  - name: Tool0111
+    path: SCRIPTS/TOOLS/T0111
+  - name: Tool0112
+    path: SCRIPTS/TOOLS/T0112
+  - name: Tool0113
+    path: SCRIPTS/TOOLS/T0113
+  - name: Tool0114
+    path: SCRIPTS/TOOLS/T0114
+  - name: Tool0115
+    path: SCRIPTS/TOOLS/T0115
+  - name: Tool0116
+    path: SCRIPTS/TOOLS/T0116
+  - name: Tool0117
+    path: SCRIPTS/TOOLS/T0117
+  - name: Tool0118
+    path: SCRIPTS/TOOLS/T0118
+  - name: Tool0119
+    path: SCRIPTS/TOOLS/T0119
+  - name: Tool0120
+    path: SCRIPTS/TOOLS/T0120
+  - name: Tool0121
+    path: SCRIPTS/TOOLS/T0121
+  - name: Tool0122
+    path: SCRIPTS/TOOLS/T0122
+  - name: Tool0123
+    path: SCRIPTS/TOOLS/T0123
+  - name: Tool0124
+    path: SCRIPTS/TOOLS/T0124
+  - name: Tool0125
+    path: SCRIPTS/TOOLS/T0125
+  - name: Tool0126
+    path: SCRIPTS/TOOLS/T0126
+  - name: Tool0127
+    path: SCRIPTS/TOOLS/T0127
+  - name: Tool0128
+    path: SCRIPTS/TOOLS/T0128
+  - name: Tool0129
+    path: SCRIPTS/TOOLS/T0129
+  - name: Tool0130
+    path: SCRIPTS/TOOLS/T0130
+  - name: Tool0131
+    path: SCRIPTS/TOOLS/T0131
+  - name: Tool0132
+    path: SCRIPTS/TOOLS/T0132
+  - name: Tool0133
+    path: SCRIPTS/TOOLS/T0133
+  - name: Tool0134
+    path: SCRIPTS/TOOLS/T0134
+  - name: Tool0135
+    path: SCRIPTS/TOOLS/T0135
+  - name: Tool0136
+    path: SCRIPTS/TOOLS/T0136
+  - name: Tool0137
+    path: SCRIPTS/TOOLS/T0137
+  - name: Tool0138
+    path: SCRIPTS/TOOLS/T0138
+  - name: Tool0139
+    path: SCRIPTS/TOOLS/T0139
+  - name: Tool0140
+    path: SCRIPTS/TOOLS/T0140
+  - name: Tool0141
+    path: SCRIPTS/TOOLS/T0141
+  - name: Tool0142
+    path: SCRIPTS/TOOLS/T0142
+  - name: Tool0143
+    path: SCRIPTS/TOOLS/T0143
+  - name: Tool0144
+    path: SCRIPTS/TOOLS/T0144
+  - name: Tool0145
+    path: SCRIPTS/TOOLS/T0145
+  - name: Tool0146
+    path: SCRIPTS/TOOLS/T0146
+  - name: Tool0147
+    path: SCRIPTS/TOOLS/T0147
+  - name: Tool0148
+    path: SCRIPTS/TOOLS/T0148
+  - name: Tool0149
+    path: SCRIPTS/TOOLS/T0149
+  - name: Tool0150
+    path: SCRIPTS/TOOLS/T0150
+  - name: Tool0151
+    path: SCRIPTS/TOOLS/T0151
+  - name: Tool0152
+    path: SCRIPTS/TOOLS/T0152
+  - name: Tool0153
+    path: SCRIPTS/TOOLS/T0153
+  - name: Tool0154
+    path: SCRIPTS/TOOLS/T0154
+  - name: Tool0155
+    path: SCRIPTS/TOOLS/T0155
+  - name: Tool0156
+    path: SCRIPTS/TOOLS/T0156
+  - name: Tool0157
+    path: SCRIPTS/TOOLS/T0157
+  - name: Tool0158
+    path: SCRIPTS/TOOLS/T0158
+  - name: Tool0159
+    path: SCRIPTS/TOOLS/T0159
+  - name: Tool0160
+    path: SCRIPTS/TOOLS/T0160
+  - name: Tool0161
+    path: SCRIPTS/TOOLS/T0161
+  - name: Tool0162
+    path: SCRIPTS/TOOLS/T0162
+  - name: Tool0163
+    path: SCRIPTS/TOOLS/T0163
+  - name: Tool0164
+    path: SCRIPTS/TOOLS/T0164
+  - name: Tool0165
+    path: SCRIPTS/TOOLS/T0165
+  - name: Tool0166
+    path: SCRIPTS/TOOLS/T0166
+  - name: Tool0167
+    path: SCRIPTS/TOOLS/T0167
+  - name: Tool0168
+    path: SCRIPTS/TOOLS/T0168
+  - name: Tool0169
+    path: SCRIPTS/TOOLS/T0169
+  - name: Tool0170
+    path: SCRIPTS/TOOLS/T0170
+  - name: Tool0171
+    path: SCRIPTS/TOOLS/T0171
+  - name: Tool0172
+    path: SCRIPTS/TOOLS/T0172
+  - name: Tool0173
+    path: SCRIPTS/TOOLS/T0173
+  - name: Tool0174
+    path: SCRIPTS/TOOLS/T0174
+  - name: Tool0175
+    path: SCRIPTS/TOOLS/T0175
+  - name: Tool0176
+    path: SCRIPTS/TOOLS/T0176
+  - name: Tool0177
+    path: SCRIPTS/TOOLS/T0177
+  - name: Tool0178
+    path: SCRIPTS/TOOLS/T0178
+  - name: Tool0179
+    path: SCRIPTS/TOOLS/T0179
+  - name: Tool0180
+    path: SCRIPTS/TOOLS/T0180
+  - name: Tool0181
+    path: SCRIPTS/TOOLS/T0181
+  - name: Tool0182
+    path: SCRIPTS/TOOLS/T0182
+  - name: Tool0183
+    path: SCRIPTS/TOOLS/T0183
+  - name: Tool0184
+    path: SCRIPTS/TOOLS/T0184
+  - name: Tool0185
+    path: SCRIPTS/TOOLS/T0185
+  - name: Tool0186
+    path: SCRIPTS/TOOLS/T0186
+  - name: Tool0187
+    path: SCRIPTS/TOOLS/T0187
+  - name: Tool0188
+    path: SCRIPTS/TOOLS/T0188
+  - name: Tool0189
+    path: SCRIPTS/TOOLS/T0189
+  - name: Tool0190
+    path: SCRIPTS/TOOLS/T0190
+  - name: Tool0191
+    path: SCRIPTS/TOOLS/T0191
+  - name: Tool0192
+    path: SCRIPTS/TOOLS/T0192
+  - name: Tool0193
+    path: SCRIPTS/TOOLS/T0193
+  - name: Tool0194
+    path: SCRIPTS/TOOLS/T0194
+  - name: Tool0195
+    path: SCRIPTS/TOOLS/T0195
+  - name: Tool0196
+    path: SCRIPTS/TOOLS/T0196
+  - name: Tool0197
+    path: SCRIPTS/TOOLS/T0197
+  - name: Tool0198
+    path: SCRIPTS/TOOLS/T0198
+  - name: Tool0199
+    path: SCRIPTS/TOOLS/T0199
+  - name: Tool0200
+    path: SCRIPTS/TOOLS/T0200
+  - name: Tool0201
+    path: SCRIPTS/TOOLS/T0201
+  - name: Tool0202
+    path: SCRIPTS/TOOLS/T0202
+  - name: Tool0203
+    path: SCRIPTS/TOOLS/T0203
+  - name: Tool0204
+    path: SCRIPTS/TOOLS/T0204
+  - name: Tool0205
+    path: SCRIPTS/TOOLS/T0205
+  - name: Tool0206
+    path: SCRIPTS/TOOLS/T0206
+  - name: Tool0207
+    path: SCRIPTS/TOOLS/T0207
+  - name: Tool0208
+    path: SCRIPTS/TOOLS/T0208
+  - name: Tool0209
+    path: SCRIPTS/TOOLS/T0209
+  - name: Tool0210
+    path: SCRIPTS/TOOLS/T0210
+  - name: Tool0211
+    path: SCRIPTS/TOOLS/T0211
+  - name: Tool0212
+    path: SCRIPTS/TOOLS/T0212
+  - name: Tool0213
+    path: SCRIPTS/TOOLS/T0213
+  - name: Tool0214
+    path: SCRIPTS/TOOLS/T0214
+  - name: Tool0215
+    path: SCRIPTS/TOOLS/T0215
+  - name: Tool0216
+    path: SCRIPTS/TOOLS/T0216
+  - name: Tool0217
+    path: SCRIPTS/TOOLS/T0217
+  - name: Tool0218
+    path: SCRIPTS/TOOLS/T0218
+  - name: Tool0219
+    path: SCRIPTS/TOOLS/T0219
+  - name: Tool0220
+    path: SCRIPTS/TOOLS/T0220
+  - name: Tool0221
+    path: SCRIPTS/TOOLS/T0221
+  - name: Tool0222
+    path: SCRIPTS/TOOLS/T0222
+  - name: Tool0223
+    path: SCRIPTS/TOOLS/T0223
+  - name: Tool0224
+    path: SCRIPTS/TOOLS/T0224
+  - name: Tool0225
+    path: SCRIPTS/TOOLS/T0225
+  - name: Tool0226
+    path: SCRIPTS/TOOLS/T0226
+  - name: Tool0227
+    path: SCRIPTS/TOOLS/T0227
+  - name: Tool0228
+    path: SCRIPTS/TOOLS/T0228
+  - name: Tool0229
+    path: SCRIPTS/TOOLS/T0229
+  - name: Tool0230
+    path: SCRIPTS/TOOLS/T0230
+  - name: Tool0231
+    path: SCRIPTS/TOOLS/T0231
+  - name: Tool0232
+    path: SCRIPTS/TOOLS/T0232
+  - name: Tool0233
+    path: SCRIPTS/TOOLS/T0233
+  - name: Tool0234
+    path: SCRIPTS/TOOLS/T0234
+  - name: Tool0235
+    path: SCRIPTS/TOOLS/T0235
+  - name: Tool0236
+    path: SCRIPTS/TOOLS/T0236
+  - name: Tool0237
+    path: SCRIPTS/TOOLS/T0237
+  - name: Tool0238
+    path: SCRIPTS/TOOLS/T0238
+  - name: Tool0239
+    path: SCRIPTS/TOOLS/T0239
+  - name: Tool0240
+    path: SCRIPTS/TOOLS/T0240
+  - name: Tool0241
+    path: SCRIPTS/TOOLS/T0241
+  - name: Tool0242
+    path: SCRIPTS/TOOLS/T0242
+  - name: Tool0243
+    path: SCRIPTS/TOOLS/T0243
+  - name: Tool0244
+    path: SCRIPTS/TOOLS/T0244
+  - name: Tool0245
+    path: SCRIPTS/TOOLS/T0245
+  - name: Tool0246
+    path: SCRIPTS/TOOLS/T0246
+  - name: Tool0247
+    path: SCRIPTS/TOOLS/T0247
+  - name: Tool0248
+    path: SCRIPTS/TOOLS/T0248
+  - name: Tool0249
+    path: SCRIPTS/TOOLS/T0249
+  - name: Tool0250
+    path: SCRIPTS/TOOLS/T0250
+  - name: Tool0251
+    path: SCRIPTS/TOOLS/T0251
+  - name: Tool0252
+    path: SCRIPTS/TOOLS/T0252
+  - name: Tool0253
+    path: SCRIPTS/TOOLS/T0253
+  - name: Tool0254
+    path: SCRIPTS/TOOLS/T0254
+  - name: Tool0255
+    path: SCRIPTS/TOOLS/T0255
+  - name: Tool0256
+    path: SCRIPTS/TOOLS/T0256
+  - name: Tool0257
+    path: SCRIPTS/TOOLS/T0257
+  - name: Tool0258
+    path: SCRIPTS/TOOLS/T0258
+  - name: Tool0259
+    path: SCRIPTS/TOOLS/T0259
+  - name: Tool0260
+    path: SCRIPTS/TOOLS/T0260
+  - name: Tool0261
+    path: SCRIPTS/TOOLS/T0261
+  - name: Tool0262
+    path: SCRIPTS/TOOLS/T0262
+  - name: Tool0263
+    path: SCRIPTS/TOOLS/T0263
+  - name: Tool0264
+    path: SCRIPTS/TOOLS/T0264
+  - name: Tool0265
+    path: SCRIPTS/TOOLS/T0265
+  - name: Tool0266
+    path: SCRIPTS/TOOLS/T0266
+  - name: Tool0267
+    path: SCRIPTS/TOOLS/T0267
+  - name: Tool0268
+    path: SCRIPTS/TOOLS/T0268
+  - name: Tool0269
+    path: SCRIPTS/TOOLS/T0269
+  - name: Tool0270
+    path: SCRIPTS/TOOLS/T0270
+  - name: Tool0271
+    path: SCRIPTS/TOOLS/T0271
+  - name: Tool0272
+    path: SCRIPTS/TOOLS/T0272
+  - name: Tool0273
+    path: SCRIPTS/TOOLS/T0273
+  - name: Tool0274
+    path: SCRIPTS/TOOLS/T0274
+  - name: Tool0275
+    path: SCRIPTS/TOOLS/T0275
+  - name: Tool0276
+    path: SCRIPTS/TOOLS/T0276
+  - name: Tool0277
+    path: SCRIPTS/TOOLS/T0277
+  - name: Tool0278
+    path: SCRIPTS/TOOLS/T0278
+  - name: Tool0279
+    path: SCRIPTS/TOOLS/T0279
+  - name: Tool0280
+    path: SCRIPTS/TOOLS/T0280
+  - name: Tool0281
+    path: SCRIPTS/TOOLS/T0281
+  - name: Tool0282
+    path: SCRIPTS/TOOLS/T0282
+  - name: Tool0283
+    path: SCRIPTS/TOOLS/T0283
+  - name: Tool0284
+    path: SCRIPTS/TOOLS/T0284
+  - name: Tool0285
+    path: SCRIPTS/TOOLS/T0285
+  - name: Tool0286
+    path: SCRIPTS/TOOLS/T0286
+  - name: Tool0287
+    path: SCRIPTS/TOOLS/T0287
+  - name: Tool0288
+    path: SCRIPTS/TOOLS/T0288
+  - name: Tool0289
+    path: SCRIPTS/TOOLS/T0289
+  - name: Tool0290
+    path: SCRIPTS/TOOLS/T0290
+  - name: Tool0291
+    path: SCRIPTS/TOOLS/T0291
+  - name: Tool0292
+    path: SCRIPTS/TOOLS/T0292
+  - name: Tool0293
+    path: SCRIPTS/TOOLS/T0293
+  - name: Tool0294
+    path: SCRIPTS/TOOLS/T0294
+  - name: Tool0295
+    path: SCRIPTS/TOOLS/T0295
+  - name: Tool0296
+    path: SCRIPTS/TOOLS/T0296
+  - name: Tool0297
+    path: SCRIPTS/TOOLS/T0297
+  - name: Tool0298
+    path: SCRIPTS/TOOLS/T0298
+  - name: Tool0299
+    path: SCRIPTS/TOOLS/T0299
+  - name: Tool0300
+    path: SCRIPTS/TOOLS/T0300
+  - name: Tool0301
+    path: SCRIPTS/TOOLS/T0301
+  - name: Tool0302
+    path: SCRIPTS/TOOLS/T0302
+  - name: Tool0303
+    path: SCRIPTS/TOOLS/T0303
+  - name: Tool0304
+    path: SCRIPTS/TOOLS/T0304
+  - name: Tool0305
+    path: SCRIPTS/TOOLS/T0305
+  - name: Tool0306
+    path: SCRIPTS/TOOLS/T0306
+  - name: Tool0307
+    path: SCRIPTS/TOOLS/T0307
+  - name: Tool0308
+    path: SCRIPTS/TOOLS/T0308
+  - name: Tool0309
+    path: SCRIPTS/TOOLS/T0309
+  - name: Tool0310
+    path: SCRIPTS/TOOLS/T0310
+  - name: Tool0311
+    path: SCRIPTS/TOOLS/T0311
+  - name: Tool0312
+    path: SCRIPTS/TOOLS/T0312
+  - name: Tool0313
+    path: SCRIPTS/TOOLS/T0313
+  - name: Tool0314
+    path: SCRIPTS/TOOLS/T0314
+  - name: Tool0315
+    path: SCRIPTS/TOOLS/T0315
+  - name: Tool0316
+    path: SCRIPTS/TOOLS/T0316
+  - name: Tool0317
+    path: SCRIPTS/TOOLS/T0317
+  - name: Tool0318
+    path: SCRIPTS/TOOLS/T0318
+  - name: Tool0319
+    path: SCRIPTS/TOOLS/T0319
+  - name: Tool0320
+    path: SCRIPTS/TOOLS/T0320
+  - name: Tool0321
+    path: SCRIPTS/TOOLS/T0321
+  - name: Tool0322
+    path: SCRIPTS/TOOLS/T0322
+  - name: Tool0323
+    path: SCRIPTS/TOOLS/T0323
+  - name: Tool0324
+    path: SCRIPTS/TOOLS/T0324
+  - name: Tool0325
+    path: SCRIPTS/TOOLS/T0325
+  - name: Tool0326
+    path: SCRIPTS/TOOLS/T0326
+  - name: Tool0327
+    path: SCRIPTS/TOOLS/T0327
+  - name: Tool0328
+    path: SCRIPTS/TOOLS/T0328
+  - name: Tool0329
+    path: SCRIPTS/TOOLS/T0329
+  - name: Tool0330
+    path: SCRIPTS/TOOLS/T0330
+  - name: Tool0331
+    path: SCRIPTS/TOOLS/T0331
+  - name: Tool0332
+    path: SCRIPTS/TOOLS/T0332
+  - name: Tool0333
+    path: SCRIPTS/TOOLS/T0333
+  - name: Tool0334
+    path: SCRIPTS/TOOLS/T0334
+  - name: Tool0335
+    path: SCRIPTS/TOOLS/T0335
+  - name: Tool0336
+    path: SCRIPTS/TOOLS/T0336
+  - name: Tool0337
+    path: SCRIPTS/TOOLS/T0337
+  - name: Tool0338
+    path: SCRIPTS/TOOLS/T0338
+  - name: Tool0339
+    path: SCRIPTS/TOOLS/T0339
+  - name: Tool0340
+    path: SCRIPTS/TOOLS/T0340
+  - name: Tool0341
+    path: SCRIPTS/TOOLS/T0341
+  - name: Tool0342
+    path: SCRIPTS/TOOLS/T0342
+  - name: Tool0343
+    path: SCRIPTS/TOOLS/T0343
+  - name: Tool0344
+    path: SCRIPTS/TOOLS/T0344
+  - name: Tool0345
+    path: SCRIPTS/TOOLS/T0345
+  - name: Tool0346
+    path: SCRIPTS/TOOLS/T0346
+  - name: Tool0347
+    path: SCRIPTS/TOOLS/T0347
+  - name: Tool0348
+    path: SCRIPTS/TOOLS/T0348
+  - name: Tool0349
+    path: SCRIPTS/TOOLS/T0349
+  - name: Tool0350
+    path: SCRIPTS/TOOLS/T0350
+  - name: Tool0351
+    path: SCRIPTS/TOOLS/T0351
+  - name: Tool0352
+    path: SCRIPTS/TOOLS/T0352
+  - name: Tool0353
+    path: SCRIPTS/TOOLS/T0353
+  - name: Tool0354
+    path: SCRIPTS/TOOLS/T0354
+  - name: Tool0355
+    path: SCRIPTS/TOOLS/T0355
+  - name: Tool0356
+    path: SCRIPTS/TOOLS/T0356
+  - name: Tool0357
+    path: SCRIPTS/TOOLS/T0357
+  - name: Tool0358
+    path: SCRIPTS/TOOLS/T0358
+  - name: Tool0359
+    path: SCRIPTS/TOOLS/T0359
+  - name: Tool0360
+    path: SCRIPTS/TOOLS/T0360
+  - name: Tool0361
+    path: SCRIPTS/TOOLS/T0361
+  - name: Tool0362
+    path: SCRIPTS/TOOLS/T0362
+  - name: Tool0363
+    path: SCRIPTS/TOOLS/T0363
+  - name: Tool0364
+    path: SCRIPTS/TOOLS/T0364
+  - name: Tool0365
+    path: SCRIPTS/TOOLS/T0365
+  - name: Tool0366
+    path: SCRIPTS/TOOLS/T0366
+  - name: Tool0367
+    path: SCRIPTS/TOOLS/T0367
+  - name: Tool0368
+    path: SCRIPTS/TOOLS/T0368
+  - name: Tool0369
+    path: SCRIPTS/TOOLS/T0369
+  - name: Tool0370
+    path: SCRIPTS/TOOLS/T0370
+  - name: Tool0371
+    path: SCRIPTS/TOOLS/T0371
+  - name: Tool0372
+    path: SCRIPTS/TOOLS/T0372
+  - name: Tool0373
+    path: SCRIPTS/TOOLS/T0373
+  - name: Tool0374
+    path: SCRIPTS/TOOLS/T0374
+  - name: Tool0375
+    path: SCRIPTS/TOOLS/T0375
+  - name: Tool0376
+    path: SCRIPTS/TOOLS/T0376
+  - name: Tool0377
+    path: SCRIPTS/TOOLS/T0377
+  - name: Tool0378
+    path: SCRIPTS/TOOLS/T0378
+  - name: Tool0379
+    path: SCRIPTS/TOOLS/T0379
+  - name: Tool0380
+    path: SCRIPTS/TOOLS/T0380
+  - name: Tool0381
+    path: SCRIPTS/TOOLS/T0381
+  - name: Tool0382
+    path: SCRIPTS/TOOLS/T0382
+  - name: Tool0383
+    path: SCRIPTS/TOOLS/T0383
+  - name: Tool0384
+    path: SCRIPTS/TOOLS/T0384
+  - name: Tool0385
+    path: SCRIPTS/TOOLS/T0385
+  - name: Tool0386
+    path: SCRIPTS/TOOLS/T0386
+  - name: Tool0387
+    path: SCRIPTS/TOOLS/T0387
+  - name: Tool0388
+    path: SCRIPTS/TOOLS/T0388
+  - name: Tool0389
+    path: SCRIPTS/TOOLS/T0389
+  - name: Tool0390
+    path: SCRIPTS/TOOLS/T0390
+  - name: Tool0391
+    path: SCRIPTS/TOOLS/T0391
+  - name: Tool0392
+    path: SCRIPTS/TOOLS/T0392
+  - name: Tool0393
+    path: SCRIPTS/TOOLS/T0393
+  - name: Tool0394
+    path: SCRIPTS/TOOLS/T0394
+  - name: Tool0395
+    path: SCRIPTS/TOOLS/T0395
+  - name: Tool0396
+    path: SCRIPTS/TOOLS/T0396
+  - name: Tool0397
+    path: SCRIPTS/TOOLS/T0397
+  - name: Tool0398
+    path: SCRIPTS/TOOLS/T0398
+  - name: Tool0399
+    path: SCRIPTS/TOOLS/T0399
+  - name: Tool0400
+    path: SCRIPTS/TOOLS/T0400
+  - name: Tool0401
+    path: SCRIPTS/TOOLS/T0401
+  - name: Tool0402
+    path: SCRIPTS/TOOLS/T0402
+  - name: Tool0403
+    path: SCRIPTS/TOOLS/T0403
+  - name: Tool0404
+    path: SCRIPTS/TOOLS/T0404
+  - name: Tool0405
+    path: SCRIPTS/TOOLS/T0405
+  - name: Tool0406
+    path: SCRIPTS/TOOLS/T0406
+  - name: Tool0407
+    path: SCRIPTS/TOOLS/T0407
+  - name: Tool0408
+    path: SCRIPTS/TOOLS/T0408
+  - name: Tool0409
+    path: SCRIPTS/TOOLS/T0409
+  - name: Tool0410
+    path: SCRIPTS/TOOLS/T0410
+  - name: Tool0411
+    path: SCRIPTS/TOOLS/T0411
+  - name: Tool0412
+    path: SCRIPTS/TOOLS/T0412
+  - name: Tool0413
+    path: SCRIPTS/TOOLS/T0413
+  - name: Tool0414
+    path: SCRIPTS/TOOLS/T0414
+  - name: Tool0415
+    path: SCRIPTS/TOOLS/T0415
+  - name: Tool0416
+    path: SCRIPTS/TOOLS/T0416
+  - name: Tool0417
+    path: SCRIPTS/TOOLS/T0417
+  - name: Tool0418
+    path: SCRIPTS/TOOLS/T0418
+  - name: Tool0419
+    path: SCRIPTS/TOOLS/T0419
+  - name: Tool0420
+    path: SCRIPTS/TOOLS/T0420
+  - name: Tool0421
+    path: SCRIPTS/TOOLS/T0421
+  - name: Tool0422
+    path: SCRIPTS/TOOLS/T0422
+  - name: Tool0423
+    path: SCRIPTS/TOOLS/T0423
+  - name: Tool0424
+    path: SCRIPTS/TOOLS/T0424
+  - name: Tool0425
+    path: SCRIPTS/TOOLS/T0425
+  - name: Tool0426
+    path: SCRIPTS/TOOLS/T0426
+  - name: Tool0427
+    path: SCRIPTS/TOOLS/T0427
+  - name: Tool0428
+    path: SCRIPTS/TOOLS/T0428
+  - name: Tool0429
+    path: SCRIPTS/TOOLS/T0429
+  - name: Tool0430
+    path: SCRIPTS/TOOLS/T0430
+  - name: Tool0431
+    path: SCRIPTS/TOOLS/T0431
+  - name: Tool0432
+    path: SCRIPTS/TOOLS/T0432
+  - name: Tool0433
+    path: SCRIPTS/TOOLS/T0433
+  - name: Tool0434
+    path: SCRIPTS/TOOLS/T0434
+  - name: Tool0435
+    path: SCRIPTS/TOOLS/T0435
+  - name: Tool0436
+    path: SCRIPTS/TOOLS/T0436
+  - name: Tool0437
+    path: SCRIPTS/TOOLS/T0437
+  - name: Tool0438
+    path: SCRIPTS/TOOLS/T0438
+  - name: Tool0439
+    path: SCRIPTS/TOOLS/T0439
+  - name: Tool0440
+    path: SCRIPTS/TOOLS/T0440
+  - name: Tool0441
+    path: SCRIPTS/TOOLS/T0441
+  - name: Tool0442
+    path: SCRIPTS/TOOLS/T0442
+  - name: Tool0443
+    path: SCRIPTS/TOOLS/T0443
+  - name: Tool0444
+    path: SCRIPTS/TOOLS/T0444
+  - name: Tool0445
+    path: SCRIPTS/TOOLS/T0445
+  - name: Tool0446
+    path: SCRIPTS/TOOLS/T0446
+  - name: Tool0447
+    path: SCRIPTS/TOOLS/T0447
+  - name: Tool0448
+    path: SCRIPTS/TOOLS/T0448
+  - name: Tool0449
+    path: SCRIPTS/TOOLS/T0449
+  - name: Tool0450
+    path: SCRIPTS/TOOLS/T0450
+  - name: Tool0451
+    path: SCRIPTS/TOOLS/T0451
+  - name: Tool0452
+    path: SCRIPTS/TOOLS/T0452
+  - name: Tool0453
+    path: SCRIPTS/TOOLS/T0453
+  - name: Tool0454
+    path: SCRIPTS/TOOLS/T0454
+  - name: Tool0455
+    path: SCRIPTS/TOOLS/T0455
+  - name: Tool0456
+    path: SCRIPTS/TOOLS/T0456
+  - name: Tool0457
+    path: SCRIPTS/TOOLS/T0457
+  - name: Tool0458
+    path: SCRIPTS/TOOLS/T0458
+  - name: Tool0459
+    path: SCRIPTS/TOOLS/T0459
+  - name: Tool0460
+    path: SCRIPTS/TOOLS/T0460
+  - name: Tool0461
+    path: SCRIPTS/TOOLS/T0461
+  - name: Tool0462
+    path: SCRIPTS/TOOLS/T0462
+  - name: Tool0463
+    path: SCRIPTS/TOOLS/T0463
+  - name: Tool0464
+    path: SCRIPTS/TOOLS/T0464
+  - name: Tool0465
+    path: SCRIPTS/TOOLS/T0465
+  - name: Tool0466
+    path: SCRIPTS/TOOLS/T0466
+  - name: Tool0467
+    path: SCRIPTS/TOOLS/T0467
+  - name: Tool0468
+    path: SCRIPTS/TOOLS/T0468
+  - name: Tool0469
+    path: SCRIPTS/TOOLS/T0469
+  - name: Tool0470
+    path: SCRIPTS/TOOLS/T0470
+  - name: Tool0471
+    path: SCRIPTS/TOOLS/T0471
+  - name: Tool0472
+    path: SCRIPTS/TOOLS/T0472
+  - name: Tool0473
+    path: SCRIPTS/TOOLS/T0473
+  - name: Tool0474
+    path: SCRIPTS/TOOLS/T0474
+  - name: Tool0475
+    path: SCRIPTS/TOOLS/T0475
+  - name: Tool0476
+    path: SCRIPTS/TOOLS/T0476
+  - name: Tool0477
+    path: SCRIPTS/TOOLS/T0477
+  - name: Tool0478
+    path: SCRIPTS/TOOLS/T0478
+  - name: Tool0479
+    path: SCRIPTS/TOOLS/T0479
+  - name: Tool0480
+    path: SCRIPTS/TOOLS/T0480
+  - name: Tool0481
+    path: SCRIPTS/TOOLS/T0481
+  - name: Tool0482
+    path: SCRIPTS/TOOLS/T0482
+  - name: Tool0483
+    path: SCRIPTS/TOOLS/T0483
+  - name: Tool0484
+    path: SCRIPTS/TOOLS/T0484
+  - name: Tool0485
+    path: SCRIPTS/TOOLS/T0485
+  - name: Tool0486
+    path: SCRIPTS/TOOLS/T0486
+  - name: Tool0487
+    path: SCRIPTS/TOOLS/T0487
+  - name: Tool0488
+    path: SCRIPTS/TOOLS/T0488
+  - name: Tool0489
+    path: SCRIPTS/TOOLS/T0489
+  - name: Tool0490
+    path: SCRIPTS/TOOLS/T0490
+  - name: Tool0491
+    path: SCRIPTS/TOOLS/T0491
+  - name: Tool0492
+    path: SCRIPTS/TOOLS/T0492
+  - name: Tool0493
+    path: SCRIPTS/TOOLS/T0493
+  - name: Tool0494
+    path: SCRIPTS/TOOLS/T0494
+  - name: Tool0495
+    path: SCRIPTS/TOOLS/T0495
+  - name: Tool0496
+    path: SCRIPTS/TOOLS/T0496
+  - name: Tool0497
+    path: SCRIPTS/TOOLS/T0497
+  - name: Tool0498
+    path: SCRIPTS/TOOLS/T0498
+  - name: Tool0499
+    path: SCRIPTS/TOOLS/T0499
+  - name: Tool0500
+    path: SCRIPTS/TOOLS/T0500
+  - name: Tool0501
+    path: SCRIPTS/TOOLS/T0501
+  - name: Tool0502
+    path: SCRIPTS/TOOLS/T0502
+  - name: Tool0503
+    path: SCRIPTS/TOOLS/T0503
+  - name: Tool0504
+    path: SCRIPTS/TOOLS/T0504
+  - name: Tool0505
+    path: SCRIPTS/TOOLS/T0505
+  - name: Tool0506
+    path: SCRIPTS/TOOLS/T0506
+  - name: Tool0507
+    path: SCRIPTS/TOOLS/T0507
+  - name: Tool0508
+    path: SCRIPTS/TOOLS/T0508
+  - name: Tool0509
+    path: SCRIPTS/TOOLS/T0509
+  - name: Tool0510
+    path: SCRIPTS/TOOLS/T0510
+  - name: Tool0511
+    path: SCRIPTS/TOOLS/T0511
+  - name: Tool0512
+    path: SCRIPTS/TOOLS/T0512

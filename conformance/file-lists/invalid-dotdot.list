@@ -1,0 +1,3 @@
+# expect: \.\./\.\./escape\.lua
+SCRIPTS/TOOLS/ok.lua
+../../escape.lua

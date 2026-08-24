@@ -1,0 +1,13 @@
+# expect: 'path' is a required property
+# INVALID: a local install must record the host directory it came from,
+# otherwise it cannot be updated or even identified later.
+edgetx_format_version: "1.0"
+packages:
+  - id: github.com/acme/work-in-progress
+    version: null
+    reason: explicit
+    requires: []
+    source:
+      repo: github.com/acme/work-in-progress
+      channel: local
+      manifest_path: "edgetx.yml"

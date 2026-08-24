@@ -1,0 +1,10 @@
+# expect: 'dest' is a required property
+# INVALID: `path: .` requires an explicit `dest`; otherwise the manifest
+# directory would install into the SD card root.
+edgetx_format_version: "1.0"
+package:
+  id: github.com/acme/theme-no-dest
+  description: Theme using path '.' without declaring a destination
+themes:
+  - name: MyTheme
+    path: .

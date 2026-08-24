@@ -1,0 +1,15 @@
+# A manifest living inside the content directory it installs — the usual shape
+# for a theme. `path: .` means the source root itself, so `dest` is required:
+# without it the implied destination would be the SD card root.
+edgetx_format_version: "1.0"
+package:
+  id: github.com/acme/bionic-theme
+  description: Bionic theme for color LCD radios
+  capabilities:
+    display:
+      type: colorlcd
+
+themes:
+  - name: Bionic_Theme
+    path: .
+    dest: THEMES/Bionic_Theme

@@ -1,0 +1,12 @@
+# SEMANTIC-ONLY: `path` names a single file while `dest` names a directory that
+# already holds content. Whether a file lands inside the directory or replaces it
+# cannot be decided from the manifest, so tooling must refuse rather than guess.
+# Detectable only with the source tree and the card both present.
+edgetx_format_version: "1.0"
+package:
+  id: github.com/acme/dest-kind
+  description: Package installing a single file over an existing directory
+files:
+  - name: manual
+    path: extras/manual.pdf
+    dest: DOCS

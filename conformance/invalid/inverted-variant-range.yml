@@ -1,0 +1,16 @@
+# SEMANTIC-ONLY: a variant entry whose min_edgetx_version exceeds its
+# max_edgetx_version after wildcard expansion. The schema checks the grammar of
+# each bound; comparing the two is not something a pattern can do.
+#
+# It matters more than an unusable entry: the entry can never match, so the
+# build it names is silently unreachable and the package installs a fallback —
+# or nothing — with no diagnostic pointing at the typo.
+edgetx_format_version: "1.0"
+package:
+  id: github.com/acme/bad-variant-range
+  description: Package with an inverted firmware range on a variant entry
+  variants:
+    - path: edgetx.new.yml
+      min_edgetx_version: "2.12.0"
+      max_edgetx_version: "2.11.x"
+    - path: edgetx.old.yml
