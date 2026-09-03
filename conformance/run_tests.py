@@ -85,6 +85,9 @@ SEMANTIC_ONLY = {
     "inverted-variant-range.yml",
     # Base content plus a selected variant entry's inline overlay share a name.
     "variant-overlay-duplicate-name.yml",
+    # Inline content on the selected variant entry and the selected variant
+    # manifest itself share a name.
+    "variant-overlay-entry-manifest-duplicate-name.yml",
     # Base content plus a selected variant entry's inline overlay resolve to one
     # destination.
     "variant-overlay-duplicate-destination.yml",
@@ -292,6 +295,7 @@ def check_variant_overlay_semantics() -> tuple[int, int]:
     directory = REPO_ROOT / "conformance" / "invalid"
     expectations = {
         "variant-overlay-duplicate-name.yml": "name",
+        "variant-overlay-entry-manifest-duplicate-name.yml": "name",
         "variant-overlay-duplicate-destination.yml": "destination",
     }
 

@@ -1042,7 +1042,7 @@ sections named above.
 
 ```yaml
 # edgetx.yml — base manifest
-edgetx_format_version: "1.0"
+edgetx_format_version: "1.1"
 base_capabilities:
   display:
     type: colorlcd
@@ -1081,7 +1081,7 @@ libraries:
 ```yaml
 # edgetx.color.yml — same id as the base; its content is merged after the base
 # content and the selected entry's inline content
-edgetx_format_version: "1.0"
+edgetx_format_version: "1.1"
 package:
   id: github.com/yaapu/FrskyTelemetryScript
   description: Yaapu Telemetry (Color LCD)
@@ -1404,7 +1404,7 @@ itself.
 | No `requires` entry names the manifest's own `id` | Comparing two values | `requires-self.yml` |
 | No two `requires` entries name the same `id` | `uniqueItems` compares whole objects, not one property | `duplicate-requires-id.yml` |
 | Two comparators form a non-empty range | The schema checks comparator shape, not satisfiability | `inverted-requires-range.yml` |
-| Content-item `name` values are unique, including across base + selected variant overlays | Cross-reference within the document and the selected variant entry | `duplicate-content-name.yml`, `variant-overlay-duplicate-name.yml` |
+| Content-item `name` values are unique, including across base + selected variant overlays | Cross-reference within the document, the selected variant entry, and the selected variant manifest | `duplicate-content-name.yml`, `variant-overlay-duplicate-name.yml`, `variant-overlay-entry-manifest-duplicate-name.yml` |
 | No two content items resolve to one destination, compared case-insensitively, including across base + selected variant overlays | Needs both destinations resolved | `duplicate-destination.yml`, `case-only-destination-collision.yml`, `variant-overlay-duplicate-destination.yml` |
 | No single-file item's destination is an ancestor of another item's, compared the same way at a `/` boundary | Needs the source tree, to know which items are single files | `ancestor-destination-overlap.yml` |
 | A variant entry's `min_edgetx_version` ≤ its `max_edgetx_version` after wildcard expansion | Comparing two values | `inverted-variant-range.yml` |

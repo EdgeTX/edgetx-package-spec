@@ -1,0 +1,7 @@
+edgetx_format_version: "1.1"
+package:
+  id: github.com/acme/overlay-entry-manifest-name-collision
+  description: Selected variant manifest with a duplicate inline overlay name
+libraries:
+  - name: SharedName
+    path: SCRIPTS/LIBS/VariantShared
