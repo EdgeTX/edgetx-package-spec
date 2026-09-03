@@ -295,25 +295,32 @@ def check_variant_overlay_semantics() -> tuple[int, int]:
         "variant-overlay-duplicate-destination.yml": "destination",
     }
 
-    def content_items(doc: dict) -> list[dict]:
+    def content_items(doc: dict) -> list[tuple[str, dict]]:
         out = []
         for section in CONTENT_SECTIONS:
-            out.extend(doc.get(section) or [])
+            out.extend((section, item) for item in (doc.get(section) or []))
         return out
 
-    def duplicate_name(items: list[dict]) -> str | None:
+    def duplicate_name(items: list[tuple[str, dict]]) -> str | None:
         seen = set()
-        for item in items:
+        for _, item in items:
             name = item.get("name")
             if name in seen:
                 return name
             seen.add(name)
         return None
 
-    def duplicate_destination(items: list[dict]) -> str | None:
+    def effective_destination(section: str, item: dict) -> str:
+        # Manifest content-item destinations are already SD-root-relative across
+        # all sections, but keep the section alongside the item so this helper
+        # follows the manifest model rather than flattening it away.
+        _ = section
+        return (item.get("dest") or item.get("path") or "").casefold()
+
+    def duplicate_destination(items: list[tuple[str, dict]]) -> str | None:
         seen = set()
-        for item in items:
-            dest = (item.get("dest") or item.get("path") or "").casefold()
+        for section, item in items:
+            dest = effective_destination(section, item)
             if dest in seen:
                 return dest
             seen.add(dest)
