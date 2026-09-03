@@ -1,0 +1,30 @@
+# Two provenance cases the state format has to carry: a package installed from a
+# directory on the host, and one fetched from a fork of its declared id.
+#
+# Note what state does NOT record: whether either package is compatible with this
+# radio. That is recomputed from the manifest whenever it is asked, not cached
+# here, because a cached verdict goes stale on every firmware flash.
+edgetx_format_version: "1.0"
+packages:
+  - id: github.com/acme/work-in-progress
+    version: null
+    reason: explicit
+    requires: []
+    source:
+      repo: github.com/acme/work-in-progress
+      channel: local
+      ref: null
+      commit: null
+      path: /home/dev/projects/work-in-progress
+      manifest_path: "edgetx.yml"
+  - id: github.com/acme/new-widget
+    version: "2.0.0"
+    reason: explicit
+    requires: []
+    source:
+      repo: github.com/acme/new-widget
+      channel: branch
+      ref: experimental
+      commit: "b1e4a7c0d3f6295e8b1c4a7d0f3e6b9c2a5d8f1e"
+      origin: github.com/contributor/new-widget
+      manifest_path: "edgetx.yml"

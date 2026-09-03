@@ -1,0 +1,7 @@
+# expect: reinstall.*is not one of
+# INVALID: `operation` must be one of install, update or remove. Recovery advice
+# depends on knowing which one was interrupted, so an unrecognised value leaves
+# the user with nothing actionable.
+operation: reinstall
+package_id: github.com/acme/my-tool
+started_at: "2026-08-23T12:40:00Z"

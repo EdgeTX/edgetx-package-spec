@@ -1,0 +1,9 @@
+# expect: '/SCRIPTS/TOOLS/MyTool' does not match
+# INVALID: content item `path` is absolute. Paths are relative to the source root.
+edgetx_format_version: "1.0"
+package:
+  id: github.com/acme/abs-path
+  description: Tool with an absolute source path
+tools:
+  - name: MyTool
+    path: /SCRIPTS/TOOLS/MyTool

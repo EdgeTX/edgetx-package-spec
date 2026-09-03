@@ -1,0 +1,17 @@
+# expect: 'some/relative/dir' does not match
+# INVALID: `source.path` is an absolute host path. A relative one has no defined
+# base — the tool's working directory is not the user's — so update would re-read
+# a different package, or none.
+edgetx_format_version: "1.0"
+packages:
+  - id: github.com/acme/relative-local
+    version: null
+    reason: explicit
+    requires: []
+    source:
+      repo: github.com/acme/relative-local
+      channel: local
+      ref: null
+      commit: null
+      path: some/relative/dir
+      manifest_path: "edgetx.yml"

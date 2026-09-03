@@ -1,0 +1,10 @@
+# expect: 'SCRIPTS/\./TOOLS/MyTool' does not match
+# INVALID: `path` contains a '.' segment. Two spellings of one location would
+# defeat the per-file ownership check, which compares paths textually.
+edgetx_format_version: "1.0"
+package:
+  id: github.com/acme/dot-segment
+  description: Package using a redundant dot segment in a source path
+tools:
+  - name: MyTool
+    path: SCRIPTS/./TOOLS/MyTool

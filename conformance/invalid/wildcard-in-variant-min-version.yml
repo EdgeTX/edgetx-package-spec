@@ -1,0 +1,13 @@
+# expect: '2\.12\.x' does not match
+# A variant entry's min_edgetx_version carries a wildcard. It uses the same
+# grammar as the package-level field, where a minimum must be a complete semver:
+# an open patch position has no defensible meaning for a lower bound. Caught by
+# the schema, via the $ref into packageBlock.
+edgetx_format_version: "1.0"
+package:
+  id: github.com/acme/wildcard-variant-min
+  description: Package with a wildcard in a variant entry's minimum
+  variants:
+    - path: edgetx.new.yml
+      min_edgetx_version: "2.12.x"
+    - path: edgetx.old.yml

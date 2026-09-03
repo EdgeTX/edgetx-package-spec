@@ -1,0 +1,12 @@
+# SEMANTIC-ONLY: `source_dir` is declared, so content paths resolve only under
+# it. There is no fallback to the manifest directory, so a path that exists at
+# the repo root but not under `src/` is an error. Detectable only with the
+# source tree present.
+edgetx_format_version: "1.0"
+package:
+  id: github.com/acme/no-fallback
+  description: Package whose content lives outside the declared source_dir
+  source_dir: src
+tools:
+  - name: MyTool
+    path: SCRIPTS/TOOLS/MyTool

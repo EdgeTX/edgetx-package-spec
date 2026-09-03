@@ -1,6 +1,0 @@
-# Invalid: category not in enum
-spec_version: "1.0"
-package:
-  id: github.com/acme/bad-category
-  description: Package with invalid category
-  category: invalid-category  # not in the enum list

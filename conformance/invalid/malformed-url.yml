@@ -1,0 +1,11 @@
+# expect: 'not\ a\ url' does not match
+# INVALID: `urls[].url` must be an absolute URL with a scheme. Validated by
+# pattern as well as by `format: uri`, because the format assertion is inert in
+# validators that lack optional dependencies — so pattern is what actually holds.
+edgetx_format_version: "1.0"
+package:
+  id: github.com/acme/bad-url
+  description: Package whose project URL is not a URL
+  urls:
+    - name: Homepage
+      url: not a url

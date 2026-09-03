@@ -1,6 +1,7 @@
-# Package that declares a library dependency.
-# The library section names the shared library; tools declare depends on it.
-spec_version: "1.0"
+# Package with a shared library alongside the scripts that use it. All of a
+# package's content installs and is removed together, so nothing has to declare
+# the relationship — the `libraries` section is there to say what a thing IS.
+edgetx_format_version: "1.0"
 package:
   id: github.com/ExpressLRS/Lua-Scripts
   name: ExpressLRS
@@ -15,11 +16,7 @@ libraries:
 tools:
   - name: ExpressLRS
     path: SCRIPTS/TOOLS/ExpressLRS
-    depends:
-      - ELRS
 
 widgets:
   - name: ELRSTelemetry
     path: WIDGETS/ELRSTelemetry
-    depends:
-      - ELRS

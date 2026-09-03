@@ -1,0 +1,8 @@
+# SEMANTIC-ONLY: a package cannot require itself. JSON Schema cannot compare
+# `requires[].id` against `package.id`.
+edgetx_format_version: "1.0"
+package:
+  id: github.com/acme/self-require
+  description: Package that lists its own id as a dependency
+requires:
+  - id: github.com/acme/self-require

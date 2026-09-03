@@ -1,5 +1,5 @@
 # Package with unicode characters in strings
-spec_version: "1.0"
+edgetx_format_version: "1.0"
 package:
   id: github.com/international/unicode-test
   name: "Тест Юникод 测试 🚁"

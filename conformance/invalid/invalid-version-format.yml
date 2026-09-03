@@ -1,6 +1,9 @@
-# Invalid: version doesn't follow semver
-spec_version: "1.0"
+# expect: 'v1\.2\.3' does not match
+# INVALID: `version` is semver with no `v` prefix. The prefix belongs to git tag
+# names, not to the version a manifest declares — update detection compares this
+# value, so the two spellings must not both be accepted.
+edgetx_format_version: "1.0"
 package:
-  id: github.com/acme/bad-version
-  version: "v1.2.3"  # should not have 'v' prefix
-  description: Package with invalid version format
+  id: github.com/acme/bad-version-format
+  version: "v1.2.3"
+  description: Package whose version carries a git-style v prefix

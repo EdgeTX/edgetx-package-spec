@@ -1,0 +1,26 @@
+# SEMANTIC-ONLY: one content item resolves to a SINGLE FILE whose destination is
+# an ancestor of another item's destination. The two destinations are distinct,
+# so the same-destination rule does not catch them, but one wants
+# SCRIPTS/TOOLS/Shared to be a file and the other wants it to be a directory.
+# Staging merges them and the winner depends on section walk order; on the card
+# the copy fails partway through.
+#
+# Detectable only with the source tree present, since which items are single
+# files is a property of the source, not of the manifest.
+#
+# Note the pair this must NOT reject: two items whose destinations nest and both
+# resolve to DIRECTORIES are legal — they merge, and a genuine per-file
+# collision is caught by the same-destination rule. Two packages may likewise
+# share a directory, so rejecting all nesting would forbid within one manifest
+# what is permitted across two.
+edgetx_format_version: "1.0"
+package:
+  id: github.com/acme/nested-dests
+  description: Package with a single-file destination nested over by another item
+files:
+  - name: Marker
+    path: extras/marker.lua
+    dest: SCRIPTS/TOOLS/Shared
+  - name: Extra
+    path: extras/inner.lua
+    dest: SCRIPTS/TOOLS/Shared/inner.lua

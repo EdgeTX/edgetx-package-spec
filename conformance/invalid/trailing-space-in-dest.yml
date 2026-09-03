@@ -1,0 +1,12 @@
+# expect: 'SCRIPTS/TOOLS/MyTool\ ' does not match
+# INVALID: a path segment ends in a space. FAT32 strips trailing spaces when
+# creating the file, so the recorded path would never match what is on the card
+# and remove would silently miss it.
+edgetx_format_version: "1.0"
+package:
+  id: github.com/acme/trailing-space
+  description: Package whose destination segment ends in a space
+tools:
+  - name: MyTool
+    path: SCRIPTS/TOOLS/MyTool
+    dest: "SCRIPTS/TOOLS/MyTool "

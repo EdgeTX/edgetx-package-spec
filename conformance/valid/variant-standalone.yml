@@ -1,0 +1,14 @@
+# A variant manifest. Variants are complete, self-contained manifests: each
+# declares the SAME `id` as its base plus its own `description`, and lists only
+# the content for that hardware profile. The capability filter that selects this
+# variant lives in the base manifest's `variants[]` entry, not here.
+edgetx_format_version: "1.0"
+package:
+  id: github.com/yaapu/FrskyTelemetryScript
+  description: Yaapu Telemetry Script and Widget (color LCD)
+  license: GPL-3.0-only
+  min_edgetx_version: "2.11.0"
+
+widgets:
+  - name: yaapu
+    path: WIDGETS/yaapu

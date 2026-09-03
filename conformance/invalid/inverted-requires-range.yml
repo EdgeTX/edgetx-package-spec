@@ -1,0 +1,10 @@
+# SEMANTIC-ONLY: `>=2.0.0 <1.0.0` is empty by construction. The schema checks the
+# comparator shape, not that the pair forms a non-empty range, so this must be
+# caught at load time.
+edgetx_format_version: "1.0"
+package:
+  id: github.com/acme/empty-range
+  description: Package whose dependency range cannot be satisfied by any version
+requires:
+  - id: github.com/someone/elrs-libs
+    version: ">=2.0.0 <1.0.0"

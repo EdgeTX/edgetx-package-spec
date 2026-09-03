@@ -1,0 +1,13 @@
+# Forward compatibility: unknown keys must be ACCEPTED and ignored, not rejected.
+# A future MINOR spec bump may add optional fields, and tooling written against
+# an earlier minor must still install the package. This fixture pins that
+# behaviour — if it ever starts failing, MINOR bumps have stopped being safe.
+edgetx_format_version: "1.0"
+package:
+  id: github.com/acme/from-the-future
+  description: Package using fields a 1.0 implementation has never heard of
+  future_package_field: whatever
+tools:
+  - name: MyTool
+    path: SCRIPTS/TOOLS/MyTool
+    future_item_field: 42

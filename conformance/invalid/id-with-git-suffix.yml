@@ -1,0 +1,8 @@
+# expect: 'github\.com/acme/simple\-tool\.git' does not match
+# INVALID: the id carries a '.git' suffix. The id is the clone URL minus the
+# scheme AND the .git suffix; allowing both spellings would alias one repository
+# to two package identities.
+edgetx_format_version: "1.0"
+package:
+  id: github.com/acme/simple-tool.git
+  description: Package whose id keeps the .git suffix

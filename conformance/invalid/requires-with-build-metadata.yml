@@ -1,0 +1,11 @@
+# expect: '\^1\.2\.3\+build\.7' does not match
+# INVALID: a dependency range must not carry build metadata. Build metadata is
+# ignored when comparing versions, so a range naming it could never mean anything
+# a reader would expect.
+edgetx_format_version: "1.0"
+package:
+  id: github.com/acme/range-metadata
+  description: Package whose dependency range carries build metadata
+requires:
+  - id: github.com/someone/elrs-libs
+    version: "^1.2.3+build.7"

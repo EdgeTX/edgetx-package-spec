@@ -1,11 +1,10 @@
-# Package with version and category fields
-spec_version: "1.0"
+# Package with an explicit version
+edgetx_format_version: "1.0"
 package:
   id: github.com/acme/telemetry-widget
   name: ACME Telemetry Widget
   version: "2.1.0"
   description: Advanced telemetry display widget for racing
-  category: telemetry
   license: MIT
   min_edgetx_version: "2.12.0"
 

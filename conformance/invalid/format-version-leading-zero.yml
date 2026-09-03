@@ -1,0 +1,7 @@
+# expect: '01\.0' does not match
+# INVALID: edgetx_format_version segments must not carry leading zeros — "01.0" has no
+# defined parse relative to "1.0".
+edgetx_format_version: "01.0"
+package:
+  id: github.com/acme/padded-version
+  description: Package with a zero-padded format version

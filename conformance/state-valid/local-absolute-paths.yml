@@ -1,0 +1,25 @@
+# Valid host-absolute path forms for local installs on both major platforms.
+edgetx_format_version: "1.0"
+packages:
+  - id: github.com/acme/local-root
+    version: null
+    reason: explicit
+    requires: []
+    source:
+      repo: github.com/acme/local-root
+      channel: local
+      ref: null
+      commit: null
+      path: /
+      manifest_path: "edgetx.yml"
+  - id: github.com/acme/local-windows
+    version: null
+    reason: explicit
+    requires: []
+    source:
+      repo: github.com/acme/local-windows
+      channel: local
+      ref: null
+      commit: null
+      path: C:/repo
+      manifest_path: "edgetx.yml"

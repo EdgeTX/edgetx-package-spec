@@ -1,0 +1,12 @@
+# SEMANTIC-ONLY: variant resolution is exactly one level deep. This manifest is
+# only invalid when loaded THROUGH a base manifest's variants[] reference — as a
+# base manifest it is perfectly valid, so the schema cannot reject it.
+edgetx_format_version: "1.0"
+package:
+  id: github.com/acme/nested
+  description: Variant manifest that declares further variants
+  variants:
+    - path: edgetx.deeper.yml
+      capabilities:
+        display:
+          type: colorlcd

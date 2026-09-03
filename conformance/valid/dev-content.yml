@@ -1,0 +1,21 @@
+# Development-only content. `dev: true` items are skipped by install and update
+# unless --dev is passed. Whether they were included is deliberately NOT recorded
+# in state: each invocation decides for itself.
+edgetx_format_version: "1.0"
+package:
+  id: github.com/acme/with-dev-content
+  description: Package carrying test harnesses that must not reach users
+
+libraries:
+  - name: Common
+    path: SCRIPTS/LIBS/Common
+  - name: TestUtils
+    path: SCRIPTS/TestUtils
+    dev: true
+
+tools:
+  - name: MyTool
+    path: SCRIPTS/TOOLS/MyTool
+  - name: DebugTool
+    path: SCRIPTS/TOOLS/DebugTool
+    dev: true

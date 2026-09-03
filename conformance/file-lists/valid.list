@@ -1,0 +1,5 @@
+SCRIPTS/TOOLS/LogViewer/main.lua
+SCRIPTS/TOOLS/LogViewer/lib/parse.lua
+SCRIPTS/LIBS/Common/init.lua
+
+THEMES/Bionic_Theme/theme.yml

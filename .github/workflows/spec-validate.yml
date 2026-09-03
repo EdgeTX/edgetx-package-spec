@@ -12,65 +12,8 @@ permissions:
   contents: read
 
 jobs:
-  schema-validate:
-    name: Schema — validate conformance examples against schema
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install validation dependencies
-        run: pip install jsonschema PyYAML
-
-      - name: Validate valid fixtures pass schema
-        run: |
-          python - << 'PYEOF'
-          import json, sys, pathlib
-          import jsonschema, yaml
-          root = pathlib.Path(".")
-          schema = json.load(open("schema/edgetx-manifest.v1.json"))
-          failed = 0
-          for f in sorted((root / "conformance/valid").glob("*.yml")):
-              instance = yaml.safe_load(f.read_text())
-              errs = list(jsonschema.Draft202012Validator(schema).iter_errors(instance))
-              if errs:
-                  print(f"FAIL {f}: {errs[0].message}")
-                  failed += 1
-              else:
-                  print(f"PASS {f}")
-          sys.exit(failed)
-          PYEOF
-
-      - name: Validate invalid fixtures fail schema
-        run: |
-          python - << 'PYEOF'
-          import json, sys, pathlib
-          import jsonschema, yaml
-          root = pathlib.Path(".")
-          schema = json.load(open("schema/edgetx-manifest.v1.json"))
-          # Fixtures whose invalidity is semantic — JSON Schema cannot detect them.
-          SEMANTIC_ONLY = {"circular-dependency.yml"}
-          failed = 0
-          for f in sorted((root / "conformance/invalid").glob("*.yml")):
-              if f.name in SEMANTIC_ONLY:
-                  print(f"SKIP {f}: semantic-only, not detectable by schema")
-                  continue
-              instance = yaml.safe_load(f.read_text())
-              errs = list(jsonschema.Draft202012Validator(schema).iter_errors(instance))
-              if not errs:
-                  print(f"FAIL {f}: should have been rejected but passed")
-                  failed += 1
-              else:
-                  print(f"PASS {f}: rejected as expected")
-          sys.exit(failed)
-          PYEOF
-
   conformance-tests:
-    name: Conformance — full test suite (valid pass, invalid fail)
+    name: Conformance — fixtures, schemas, links, tables and doc examples
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -83,8 +26,12 @@ jobs:
       - name: Install validation dependencies
         run: pip install jsonschema PyYAML
 
+      # Single source of truth for conformance: manifest fixtures, state
+      # fixtures, and every example embedded in the documentation. The runner
+      # also checks that each schema is itself a well-formed JSON Schema — a
+      # malformed one would silently accept everything.
       - name: Run conformance tests
-        run: python conformance/run_tests.py
+        run: python3 conformance/run_tests.py
 
   docs-lint:
     name: Docs — lint Markdown
@@ -98,7 +45,7 @@ jobs:
           node-version: "20"
 
       - name: Install markdownlint-cli
-        run: npm install -g markdownlint-cli
+        run: npm install -g markdownlint-cli@0.45.0
 
       - name: Lint Markdown files
         run: markdownlint --ignore node_modules "**/*.md"
@@ -107,7 +54,9 @@ jobs:
     name: Publish schema as release asset (on release tag)
     runs-on: ubuntu-latest
     if: github.event_name == 'release'
-    needs: [schema-validate, conformance-tests]
+    # Docs lint gates the release too: a release should not ship with the
+    # documentation in a state CI rejects.
+    needs: [conformance-tests, docs-lint]
     permissions:
       contents: write
     steps:
@@ -119,4 +68,5 @@ jobs:
         run: |
           gh release upload "${{ github.ref_name }}" \
             schema/edgetx-manifest.v1.json \
+            schema/edgetx-state.v1.json \
             --clobber

@@ -1,0 +1,9 @@
+# SEMANTIC-ONLY: min_edgetx_version is greater than max_edgetx_version, so no
+# firmware can satisfy the package. Both values are individually well-formed, so
+# JSON Schema cannot compare them.
+edgetx_format_version: "1.0"
+package:
+  id: github.com/acme/inverted-range
+  description: Package whose minimum firmware version exceeds its maximum
+  min_edgetx_version: "2.14.0"
+  max_edgetx_version: "2.13.x"

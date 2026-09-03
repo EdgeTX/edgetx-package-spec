@@ -1,0 +1,304 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/EdgeTX/edgetx-package-spec/main/schema/edgetx-state.v1.json",
+  "title": "EdgeTX Package State",
+  "description": "JSON Schema for PKG/installed.yml, the record of packages installed on an SD card (edgetx_format_version 1.x). See docs/State.md for the normative specification. An absent optional field and an explicit null are equivalent. This file also defines $defs/operationMarker, the format of PKG/.operation.",
+  "type": "object",
+  "required": [
+    "packages"
+  ],
+  "additionalProperties": true,
+  "$comment": "additionalProperties is true throughout so that unknown keys are ignored rather than rejected. A MINOR format bump may add optional fields, and older tooling must still read the state file. See docs/Manifest.md, 'edgetx_format_version'.",
+  "properties": {
+    "edgetx_format_version": {
+      "type": "string",
+      "description": "Revision of the EdgeTX package file format this state file conforms to. Same field and numbering as a manifest. Absent means \"1.0\". See docs/Manifest.md#edgetx_format_version.",
+      "pattern": "^(?![\\s\\S]*[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029])(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+    },
+    "packages": {
+      "type": "array",
+      "description": "One entry per installed package. Ids are unique.",
+      "items": {
+        "$ref": "#/$defs/installedPackage"
+      },
+      "maxItems": 512
+    }
+  },
+  "$defs": {
+    "packageId": {
+      "type": "string",
+      "pattern": "^(?![\\s\\S]*[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029])(?!.*\\.[Gg][Ii][Tt](/|$))[a-zA-Z0-9][a-zA-Z0-9_.-]*\\.[a-zA-Z0-9_.-]+(/[a-zA-Z0-9][a-zA-Z0-9_.-]*){2,}$",
+      "maxLength": 249,
+      "description": "Canonical package identifier, same form as a manifest's package.id. See docs/Manifest.md#package-id."
+    },
+    "semver": {
+      "type": "string",
+      "pattern": "^(?![\\s\\S]*[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029])(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?(\\+[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?$",
+      "description": "Semantic version. See docs/Manifest.md#package-version."
+    },
+    "timestamp": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "RFC 3339 timestamp with the Z UTC designator. Offset forms such as +00:00 are not used, so the value sorts and compares textually. See docs/State.md.",
+      "pattern": "^(?![\\s\\S]*[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029])[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?Z$"
+    },
+    "installedPackage": {
+      "type": "object",
+      "required": [
+        "id",
+        "version",
+        "reason",
+        "source",
+        "requires"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/packageId"
+        },
+        "version": {
+          "description": "package.version at install, or null when the manifest declared none.",
+          "oneOf": [
+            {
+              "$ref": "#/$defs/semver"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "description": "Whether the user asked for this package, or it came in as a dependency.",
+          "enum": [
+            "explicit",
+            "dependency"
+          ]
+        },
+        "variant": {
+          "description": "The exact variants[].path string from the base manifest, or null.",
+          "oneOf": [
+            {
+              "$ref": "#/$defs/variantPath"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "name": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Display name. Presentation only; never a key.",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "installed_at": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "source": {
+          "$ref": "#/$defs/source"
+        },
+        "requires": {
+          "type": "array",
+          "description": "Snapshot of the manifest's requires list, [] when the manifest declares none. Required: orphan cleanup and the check that a removal leaves nothing unsatisfied are not computable offline without it. See docs/State.md#dependency-snapshot.",
+          "items": {
+            "$ref": "#/$defs/requirement"
+          },
+          "maxItems": 64,
+          "uniqueItems": true
+        }
+      },
+      "$comment": "`id` is the primary key: two entries MUST NOT share one. JSON Schema cannot express uniqueness by a single property (uniqueItems compares whole objects), so tooling checks it at load time. See docs/State.md#validation-summary.",
+      "description": "One installed package. See docs/State.md#required-and-optional-fields."
+    },
+    "source": {
+      "type": "object",
+      "required": [
+        "repo",
+        "channel",
+        "manifest_path"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "repo": {
+          "$ref": "#/$defs/packageId"
+        },
+        "channel": {
+          "type": "string",
+          "description": "How the version was resolved.",
+          "enum": [
+            "tag",
+            "branch",
+            "commit",
+            "local"
+          ]
+        },
+        "ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The tag or branch name installed from. Constrained because this value is read off a removable card and handed to a fetch: no control characters, no leading '-' that a command line would read as an option, and only characters a git refname may contain. Null for channel commit and local. See docs/State.md#source.",
+          "minLength": 1,
+          "pattern": "^(?![\\s\\S]*[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029])(?!.*\\.\\.)(?!.*(^|/)\\.(/|$))(?!/)(?!.*/$)(?!.*\\.lock$)(?!.*//)(?!-)[A-Za-z0-9._/-]+$",
+          "maxLength": 255
+        },
+        "commit": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The full resolved commit object id in lowercase hex: 40 characters for SHA-1, 64 for a SHA-256 repository. Abbreviated ids MUST NOT be recorded. Null only for channel: local. See docs/State.md#source.",
+          "pattern": "^(?![\\s\\S]*[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029])([0-9a-f]{40}|[0-9a-f]{64})$"
+        },
+        "origin": {
+          "description": "Set when fetched from somewhere other than the declared id \u2014 a fork.",
+          "oneOf": [
+            {
+              "$ref": "#/$defs/packageId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "path": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Absolute path on the host filesystem, for channel: local. This is the one path in state that is not an SD card path, so the SD path rules do not apply \u2014 but it must still carry no control characters. Accepts POSIX absolute paths including `/`, and Windows drive-absolute paths such as `C:/repo`. See docs/State.md#source.",
+          "pattern": "^(?![\\s\\S]*[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029])(?:/.*|[A-Za-z]:/.*)$",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "manifest_path": {
+          "$ref": "#/$defs/repoRelativePath",
+          "description": "Repo-relative path of the manifest that was loaded. When a variant was selected this is the base manifest. See docs/State.md#source."
+        }
+      },
+      "allOf": [
+        {
+          "$comment": "commit is required unless the package was installed from a local directory.",
+          "if": {
+            "properties": {
+              "channel": {
+                "enum": [
+                  "tag",
+                  "branch",
+                  "commit"
+                ]
+              }
+            },
+            "required": [
+              "channel"
+            ]
+          },
+          "then": {
+            "required": [
+              "commit"
+            ],
+            "properties": {
+              "commit": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        {
+          "$comment": "A local install records where it came from on the host.",
+          "if": {
+            "properties": {
+              "channel": {
+                "const": "local"
+              }
+            },
+            "required": [
+              "channel"
+            ]
+          },
+          "then": {
+            "required": [
+              "path"
+            ],
+            "properties": {
+              "path": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      ],
+      "description": "Where the package came from, and which commit is installed. See docs/State.md#source."
+    },
+    "requirement": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/packageId"
+        },
+        "version": {
+          "type": "string",
+          "description": "Semver range the dependency's package.version must satisfy. Absent or '*' means any version. One comparator ('1.2.3', '=1.2.3', '^1.2.0', '~1.2.0', '>=1.2.0', '<2.0.0'), or two space-separated comparators forming a bounded range ('>=1.2.0 <2.0.0'). See docs/Manifest.md#version-ranges.",
+          "pattern": "^(\\*|([\\^~]|>=|<=|>|<|=)?(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?|(>=|>)?(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)? (<=|<)(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?)$"
+        }
+      },
+      "description": "One entry of the package's requires list, snapshotted at install. See docs/State.md#dependency-snapshot."
+    },
+    "operationMarker": {
+      "type": "object",
+      "description": "PKG/.operation \u2014 written before an operation modifies the card, deleted after the final state write. Its presence means the last operation did not finish. See docs/State.md#durability.",
+      "required": [
+        "operation",
+        "package_id",
+        "started_at"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "operation": {
+          "type": "string",
+          "enum": [
+            "install",
+            "update",
+            "remove"
+          ]
+        },
+        "package_id": {
+          "$ref": "#/$defs/packageId",
+          "description": "The package the USER asked for. One marker covers the whole request, not one per dependency."
+        },
+        "started_at": {
+          "$ref": "#/$defs/requiredTimestamp"
+        }
+      }
+    },
+    "variantPath": {
+      "type": "string",
+      "description": "The exact variants[].path string from the base manifest. Must stay inside the manifest directory. See docs/State.md#variant.",
+      "pattern": "^(?!.*(^|/)([Cc][Oo][Nn]|[Pp][Rr][Nn]|[Aa][Uu][Xx]|[Nn][Uu][Ll]|[Cc][Oo][Mm][1-9]|[Ll][Pp][Tt][1-9])(\\.[^/]*)?(/|$))(?![\\s\\S]*[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029])(?!/)(?!.*(^|/)\\.\\.?(/|$))(?!.*[ .](/|$))(?!.*//)[^\\\\:*?\"<>|]+\\.(yml|yaml)$",
+      "minLength": 5,
+      "maxLength": 255
+    },
+    "requiredTimestamp": {
+      "type": "string",
+      "description": "RFC 3339 timestamp with the Z UTC designator. Not nullable.",
+      "pattern": "^(?![\\s\\S]*[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029])[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?Z$"
+    },
+    "repoRelativePath": {
+      "type": "string",
+      "description": "A relative path inside the package repository, never an install destination. Same rules as safeRelativePath except that 'PKG/' is not reserved, since nothing here is written to the SD card. See docs/Manifest.md#path-rules.",
+      "pattern": "^(?!.*(^|/)([Cc][Oo][Nn]|[Pp][Rr][Nn]|[Aa][Uu][Xx]|[Nn][Uu][Ll]|[Cc][Oo][Mm][1-9]|[Ll][Pp][Tt][1-9])(\\.[^/]*)?(/|$))(?![\\s\\S]*[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029])(?:\\.|(?!/)(?!.*(^|/)\\.\\.?(/|$))(?!.*[ .](/|$))(?!.*//)(?!.*/$)[^\\\\:*?\"<>|]+)$",
+      "minLength": 1,
+      "maxLength": 255
+    }
+  }
+}

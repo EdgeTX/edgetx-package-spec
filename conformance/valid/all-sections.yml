@@ -1,0 +1,51 @@
+# Every content section, including `images` and `files`.
+# `files` is the escape hatch for content with no EdgeTX-defined home; a more
+# specific section must be preferred wherever one applies.
+edgetx_format_version: "1.0"
+package:
+  id: github.com/acme/kitchen-sink
+  name: Kitchen Sink
+  version: "2.0.0"
+  description: Package exercising every content section
+  license: MIT
+
+libraries:
+  - name: Common
+    path: SCRIPTS/LIBS/Common
+
+tools:
+  - name: MyTool
+    path: SCRIPTS/TOOLS/MyTool
+
+widgets:
+  - name: MyWidget
+    path: WIDGETS/MyWidget
+
+telemetry:
+  - name: MyTelem
+    path: SCRIPTS/TELEMETRY/MyTelem
+
+functions:
+  - name: MyFunc
+    path: SCRIPTS/FUNCTIONS/MyFunc
+
+mixes:
+  - name: MyMix
+    path: SCRIPTS/MIXES/MyMix
+
+sounds:
+  - name: sounds-en
+    path: SOUNDS/en
+
+images:
+  - name: splash
+    path: IMAGES/splash
+
+themes:
+  - name: MyTheme
+    path: THEMES/MyTheme
+
+files:
+  - name: docs
+    path: extras/manual.pdf
+    dest: DOCS/manual.pdf

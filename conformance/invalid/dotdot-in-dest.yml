@@ -1,0 +1,10 @@
+# expect: '\.\./MyTheme' does not match
+# INVALID: `dest` contains a '..' segment, which could escape the SD card root.
+edgetx_format_version: "1.0"
+package:
+  id: github.com/acme/escape-dest
+  description: Theme whose destination escapes the SD card root
+themes:
+  - name: MyTheme
+    path: .
+    dest: ../MyTheme

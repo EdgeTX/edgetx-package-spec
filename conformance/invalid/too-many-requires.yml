@@ -1,0 +1,73 @@
+# expect: dep064.*is too long
+# INVALID: more than 64 requires entries. The cap exists so a radio can refuse a
+# hostile manifest before running out of memory.
+edgetx_format_version: "1.0"
+package:
+  id: github.com/acme/too-many-deps
+  description: Package declaring more dependencies than the cap allows
+requires:
+  - id: github.com/someone/dep000
+  - id: github.com/someone/dep001
+  - id: github.com/someone/dep002
+  - id: github.com/someone/dep003
+  - id: github.com/someone/dep004
+  - id: github.com/someone/dep005
+  - id: github.com/someone/dep006
+  - id: github.com/someone/dep007
+  - id: github.com/someone/dep008
+  - id: github.com/someone/dep009
+  - id: github.com/someone/dep010
+  - id: github.com/someone/dep011
+  - id: github.com/someone/dep012
+  - id: github.com/someone/dep013
+  - id: github.com/someone/dep014
+  - id: github.com/someone/dep015
+  - id: github.com/someone/dep016
+  - id: github.com/someone/dep017
+  - id: github.com/someone/dep018
+  - id: github.com/someone/dep019
+  - id: github.com/someone/dep020
+  - id: github.com/someone/dep021
+  - id: github.com/someone/dep022
+  - id: github.com/someone/dep023
+  - id: github.com/someone/dep024
+  - id: github.com/someone/dep025
+  - id: github.com/someone/dep026
+  - id: github.com/someone/dep027
+  - id: github.com/someone/dep028
+  - id: github.com/someone/dep029
+  - id: github.com/someone/dep030
+  - id: github.com/someone/dep031
+  - id: github.com/someone/dep032
+  - id: github.com/someone/dep033
+  - id: github.com/someone/dep034
+  - id: github.com/someone/dep035
+  - id: github.com/someone/dep036
+  - id: github.com/someone/dep037
+  - id: github.com/someone/dep038
+  - id: github.com/someone/dep039
+  - id: github.com/someone/dep040
+  - id: github.com/someone/dep041
+  - id: github.com/someone/dep042
+  - id: github.com/someone/dep043
+  - id: github.com/someone/dep044
+  - id: github.com/someone/dep045
+  - id: github.com/someone/dep046
+  - id: github.com/someone/dep047
+  - id: github.com/someone/dep048
+  - id: github.com/someone/dep049
+  - id: github.com/someone/dep050
+  - id: github.com/someone/dep051
+  - id: github.com/someone/dep052
+  - id: github.com/someone/dep053
+  - id: github.com/someone/dep054
+  - id: github.com/someone/dep055
+  - id: github.com/someone/dep056
+  - id: github.com/someone/dep057
+  - id: github.com/someone/dep058
+  - id: github.com/someone/dep059
+  - id: github.com/someone/dep060
+  - id: github.com/someone/dep061
+  - id: github.com/someone/dep062
+  - id: github.com/someone/dep063
+  - id: github.com/someone/dep064

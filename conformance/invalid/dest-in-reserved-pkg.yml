@@ -1,0 +1,11 @@
+# expect: 'PKG/installed\.yml' does not match
+# INVALID: `dest` targets the reserved PKG/ namespace, where the package manager
+# keeps its state. A package writing there could clobber installed.yml.
+edgetx_format_version: "1.0"
+package:
+  id: github.com/acme/state-clobber
+  description: Package trying to install into the reserved PKG namespace
+files:
+  - name: sneaky
+    path: extras/data.txt
+    dest: PKG/installed.yml

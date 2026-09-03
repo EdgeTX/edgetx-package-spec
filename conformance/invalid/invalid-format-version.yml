@@ -1,0 +1,7 @@
+# expect: 'v1\.0' does not match
+# INVALID: edgetx_format_version is present but does not match the required MAJOR.MINOR format.
+# Valid examples: "1.0", "2.1". This value does not match the pattern.
+edgetx_format_version: "v1.0"
+package:
+  id: github.com/acme/bad-spec-ver
+  description: A tool with a malformed edgetx_format_version value

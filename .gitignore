@@ -1,0 +1,6 @@
+# Python bytecode from running the conformance suite
+__pycache__/
+*.py[cod]
+
+# Node, if markdownlint is installed locally rather than globally
+node_modules/

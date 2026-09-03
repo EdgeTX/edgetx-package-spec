@@ -1,0 +1,3 @@
+# expect: SCRIPTS/\./TOOLS/dup\.lua
+SCRIPTS/TOOLS/ok.lua
+SCRIPTS/./TOOLS/dup.lua

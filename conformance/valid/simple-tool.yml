@@ -1,5 +1,7 @@
-# Minimal tool package — no variants, no dependencies, no optional fields.
-spec_version: "1.0"
+# The minimum viable manifest: id and description only. Declaring no content is
+# valid — such a package installs nothing, and is useful as a metapackage that
+# pulls in others through `requires`.
+edgetx_format_version: "1.0"
 package:
   id: github.com/acme/simple-tool
   description: A simple EdgeTX tool script

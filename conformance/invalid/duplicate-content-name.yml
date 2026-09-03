@@ -1,0 +1,16 @@
+# SEMANTIC-ONLY: two content items share a name, so no diagnostic can identify
+# one of them — "MyLib installs outside the source root" names both. Names are
+# unique across every section, not just within one. `uniqueItems` compares whole
+# items, so JSON Schema cannot see it.
+edgetx_format_version: "1.0"
+package:
+  id: github.com/acme/ambiguous-name
+  description: Package with two libraries of the same name
+libraries:
+  - name: Common
+    path: SCRIPTS/LIBS/CommonA
+  - name: Common
+    path: SCRIPTS/LIBS/CommonB
+tools:
+  - name: MyTool
+    path: SCRIPTS/TOOLS/MyTool

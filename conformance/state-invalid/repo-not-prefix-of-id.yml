@@ -1,0 +1,25 @@
+# SEMANTIC-ONLY: `source.repo` names a different repository than `id` does. It
+# is not the id and not a prefix of it, so update would clone something that has
+# no relationship to the installed package.
+#
+# The schema cannot express it: repository depth varies by host (GitLab
+# subgroups nest arbitrarily), so no pattern can say how many segments a repo
+# has, and no pattern can compare two values in one document anyway.
+#
+# Note what this rule does NOT catch, because the check is necessary and not
+# sufficient: `repo: github.com/acme` is a prefix of this id at a `/` boundary
+# and would also produce a clone URL that does not exist. Deciding that needs to
+# know where the repository ends, which is exactly what varies by host. The rule
+# catches the cheap mistake; the fetch catches the rest.
+edgetx_format_version: "1.0"
+packages:
+  - id: github.com/acme/monorepo/log-viewer
+    version: "1.0.0"
+    reason: explicit
+    requires: []
+    source:
+      repo: github.com/acme/other-repo
+      channel: tag
+      ref: "v1.0.0"
+      commit: "3f9a1c0e4b7d2a5f8c1e6b0d9a4f7c2e5b8d1a03"
+      manifest_path: "log-viewer/edgetx.yml"

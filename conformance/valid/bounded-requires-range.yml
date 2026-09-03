@@ -1,0 +1,8 @@
+# A bounded dependency range, written as two space-separated comparators.
+edgetx_format_version: "1.0"
+package:
+  id: github.com/acme/bounded-dep
+  description: Package pinning a dependency to a half-open version range
+requires:
+  - id: github.com/someone/elrs-libs
+    version: ">=1.2.0 <2.0.0"

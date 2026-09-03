@@ -1,0 +1,3 @@
+# expect: bad\.lua
+SCRIPTS/TOOLS/ok.lua
+SCRIPTS\TOOLS\bad.lua

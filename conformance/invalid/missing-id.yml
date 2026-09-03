@@ -1,3 +1,4 @@
+# expect: 'id' is a required property
 # INVALID: missing required 'id' field.
 package:
   description: A tool without an id
