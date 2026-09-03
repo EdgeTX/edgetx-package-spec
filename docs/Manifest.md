@@ -103,7 +103,7 @@ future tooling and firmware adapt their handling, or refuse a manifest they
 cannot process correctly, rather than guessing.
 
 ```yaml
-edgetx_format_version: "1.0"
+edgetx_format_version: "1.1"
 ```
 
 It belongs at the top level, not inside `package:`, because it describes the
@@ -122,20 +122,19 @@ It belongs at the top level, not inside `package:`, because it describes the
   optional field beside `type` that older tooling ignores.
 - **Adding any field to a variant entry's selection filter is a MAJOR change.**
   This is the enum argument one level up, and it holds for the whole filter, not
-  just for `display`: a variant entry's fields decide which entries match and
-  what each scores for specificity, and specificity chooses which build gets
-  installed. Tooling that ignores a filter field does not merely lose a check —
-  it keeps a candidate it should have dropped, scores it wrong, and installs a
-  *different variant* than tooling that reads the field. Both then write
-  `installed.yml` claiming the same package at the same version. Acting on a
-  field's absence in a way that is wrong, rather than merely limited, is the
-  definition of a breaking change, so `variants[]` is closed to MINOR additions
-  even though `additionalProperties` is true there for parsing.
+  just for `display`: only `capabilities`, `min_edgetx_version` and
+  `max_edgetx_version` participate in selection and specificity, and adding
+  another such field would change which build installs. Tooling that ignores a
+  filter field does not merely lose a check — it keeps a candidate it should
+  have dropped, scores it wrong, and installs a *different variant* than tooling
+  that reads the field. Acting on a field's absence in a way that is wrong,
+  rather than merely limited, is the definition of a breaking change.
 
   The `additionalProperties: true` on a variant entry is what lets older tooling
   *load* a newer manifest rather than crash on it; it is not permission to add
-  filter fields in a MINOR. Both statements are needed and neither implies the
-  other.
+  new selection fields in a MINOR. Non-selection overlay fields such as
+  `capabilities_tighten` and content sections are different: they do not affect
+  variant choice.
 - Tooling MUST refuse a manifest whose MAJOR it does not know, with a message
   telling the user that newer tooling is required. It MUST NOT process such a
   manifest partially.
@@ -176,12 +175,12 @@ unknown key MUST NOT make a manifest invalid.
 | Version | Change |
 |---|---|
 | `1.0` | First version of the format. |
-| `1.1` | Added multi-version dependency resolution and per-package state files under `PKG/packages/`. |
+| `1.1` | Added multi-version dependency resolution, per-package state files under `PKG/packages/`, and explicit variant overlays via `base_capabilities`, `capabilities_tighten`, and merged content sections. |
 
 ## Manifest format
 
 ```yaml
-edgetx_format_version: "1.0"
+edgetx_format_version: "1.1"
 
 package:
   id: github.com/ExpressLRS/Lua-Scripts                       # required
@@ -229,6 +228,7 @@ widgets:
 |---|---|---|
 | `edgetx_format_version` | no | Format revision this manifest targets. Absent means `"1.0"`. See [edgetx_format_version](#edgetx_format_version). |
 | `package` | **yes** | Package metadata — see [Package fields](#package-fields). |
+| `base_capabilities` | no | Install-time hardware requirements inherited by every selected variant. Same shape as `package.capabilities`. See [Variants](#variants). |
 | `requires` | no | Dependencies on **other packages**. See [requires](#requires--other-packages). |
 | content sections | no | `libraries`, `tools`, `widgets`, `telemetry`, `functions`, `mixes`, `sounds`, `images`, `themes`, `files`. See [Content sections](#content-sections). |
 
@@ -438,14 +438,15 @@ level, so a nested `lib/util.luac` would install and then shadow the newer
 `lib/util.lua` beside it. This is a rule about copying, not an `exclude` pattern
 the author writes.
 
-`binary` is read from the manifest that **declares the content being installed**.
-When a variant was selected that is the variant manifest, not the base — variant
-manifests are complete and self-contained, and there is no field inheritance, so
-a `binary: true` on a base that declares no content of its own does nothing at
-all. Each variant manifest shipping bytecode MUST declare it itself. This is the
-same rule as every other package field; it is called out because a base manifest
-is where an author's eye lands first, and getting it wrong installs nothing
-rather than failing.
+`binary` is read from the manifest file that **declares the content being
+installed**. Base content sections and any content sections declared inline on a
+selected `variants[]` entry therefore use the base manifest's `package.binary`;
+content declared in the selected variant manifest uses that variant manifest's
+own `package.binary`. A `binary: true` on a variant manifest does not permit
+`.luac` shipped only by the base, and a `binary: true` on the base does not
+permit `.luac` shipped only by the variant. This is the same rule as every other
+package field; it is called out because a base manifest is where an author's eye
+lands first, and getting it wrong installs nothing rather than failing.
 
 A package MAY ship bytecode **and no source at all**. That is what `binary: true`
 is for, and nothing about it is a degraded case: the `.luac` files are ordinary
@@ -1018,16 +1019,34 @@ section unambiguous:
 | Term | What it is |
 |---|---|
 | **variant entry** | An item in the base manifest's `variants` list: a `path` plus a selection filter — capabilities, firmware bounds, or both. Used to *choose*. |
-| **variant manifest** | The file that entry's `path` points at. A complete manifest, loaded and used in place of the base. |
+| **variant manifest** | The file that entry's `path` points at. It still declares its own `package.id` and `description`, and its content is merged with the base's explicit overlay fields after selection. |
 | **selected variant** | The `variants[].path` string recorded in state, so update keeps the same choice. See [State.md](./State.md#variant). |
 
-**A variant manifest is a complete, self-contained manifest.** It declares its
-own `package.id` — the same id as its base — and its own `description`, and it
-lists the content for that hardware profile. There is no field inheritance.
+**A selected variant is now loaded as base + explicit overlays.** The base
+manifest MAY declare:
+
+- `base_capabilities`: install-time hardware requirements inherited by every
+  selected variant
+- top-level content sections: common content inherited by every selected variant
+- content sections on a `variants[]` entry: inline variant-only content appended
+  to the inherited base content
+- `variants[].capabilities_tighten`: install-time capability fields merged with
+  `base_capabilities`
+
+There is still **no general field inheritance**. A variant manifest still
+declares its own `package.id` — the same id as its base — and its own
+`description`, and its own package block, `requires`, `binary`, `source_dir` and
+package-level constraints mean only what that variant manifest says. The merge is
+limited to `base_capabilities` plus `capabilities_tighten`, and to the content
+sections named above.
 
 ```yaml
 # edgetx.yml — base manifest
-edgetx_format_version: "1.0"
+edgetx_format_version: "1.1"
+base_capabilities:
+  display:
+    type: colorlcd
+    touch: false
 package:
   id: github.com/yaapu/FrskyTelemetryScript
   description: Yaapu Telemetry Script and Widget
@@ -1035,25 +1054,34 @@ package:
   source_dir: OTX_ETX
   min_edgetx_version: "2.11.0"
   variants:
-    - path: edgetx.bw128x64.yml
-      capabilities:
-        display:
-          type: bw
-          resolution: 128x64
     - path: edgetx.color.yml
       capabilities:
         display:
           type: colorlcd
+      capabilities_tighten:
+        display:
+          resolution: 480x272
+      tools:
+        - name: ColorLoader
+          path: SCRIPTS/TOOLS/ColorLoader
     - path: edgetx.color-touch.yml
       capabilities:
         display:
           type: colorlcd
           touch: true
+      capabilities_tighten: {}
+      tools:
+        - name: TouchLoader
+          path: SCRIPTS/TOOLS/TouchLoader
+libraries:
+  - name: Common
+    path: SCRIPTS/LIBS/yaapu-common
 ```
 
 ```yaml
-# edgetx.color.yml — a complete manifest, same id as the base
-edgetx_format_version: "1.0"
+# edgetx.color.yml — same id as the base; its content is merged after the base
+# content and the selected entry's inline content
+edgetx_format_version: "1.1"
 package:
   id: github.com/yaapu/FrskyTelemetryScript
   description: Yaapu Telemetry (Color LCD)
@@ -1066,14 +1094,53 @@ widgets:
 
 Normative rules:
 
-- A variant entry's filter is `capabilities`, `min_edgetx_version`,
+- A variant entry's selection filter is `capabilities`, `min_edgetx_version`,
   `max_edgetx_version`, or any combination. An entry with none of them matches
   every radio, at specificity 0 — that is the fallback slot.
-- The filter is a **selection filter only**. It is not merged into the selected
-  manifest, and it does not constrain installation beyond choosing the variant. A
-  variant with hardware or firmware requirements of its own declares them in its
-  own `package.capabilities` and `package.min_edgetx_version` /
-  `package.max_edgetx_version`, which is where they are *enforced*.
+- `variants[].capabilities_tighten` is **not** part of selection. It merges with
+  the base manifest's `base_capabilities` only after a variant has already been
+  chosen.
+- A variant entry MAY declare any content section (`libraries`, `tools`,
+  `widgets`, `telemetry`, `functions`, `mixes`, `sounds`, `images`, `themes`,
+  `files`). These do **not** affect selection or specificity; they are inline
+  content overlays merged only for the selected entry.
+- `base_capabilities` has the same shape as `package.capabilities`. It is an
+  install-time overlay only: tooling MUST NOT use it to choose between variants.
+- `base_capabilities` merged with `variants[].capabilities_tighten` is a union of
+  declared leaf fields. Repeating the same value is allowed; adding a previously
+  undeclared field is how a variant tightens the base. Declaring the **same** leaf
+  with a different value is invalid and tooling MUST reject it, naming both
+  declarations. `capabilities_tighten: {}` is exactly equivalent to omitting the
+  field.
+- When a variant is selected, tooling forms the final install input in this
+  order:
+
+  1. load the base manifest
+  2. choose one variant entry
+  3. load that entry's variant manifest
+  4. merge `base_capabilities` with that entry's `capabilities_tighten`
+  5. merge every content section as **base content**, then the selected entry's
+     inline content, then the selected variant manifest's own content
+  6. validate the merged content before copying anything
+
+  The merge is explicit and narrow. Everything else still follows the existing
+  rule: `requires`, package metadata, package-level firmware bounds and
+  package-level `capabilities` are read where they are declared, not inherited.
+
+  Inline content declared on a `variants[]` entry behaves exactly like content
+  declared at the base manifest's top level for path resolution and copy rules:
+  its `path` values resolve against the base manifest's directory and source
+  roots, and the base manifest's `package.binary` governs any `.luac` it names.
+  Content declared in the selected variant manifest uses that variant manifest's
+  own directory, source roots and `package.binary`.
+
+  Collision checks run on the **merged** content set. A selected variant MUST
+  NOT introduce:
+
+  - the same content-item `name` as any inherited base item, inline overlay item,
+    or item already declared by the selected variant manifest
+  - the same destination path as any inherited or selected item, compared
+    case-insensitively as everywhere else in this specification
 
   "Both, stricter winning" needs saying precisely, because the two kinds combine
   differently. For the **firmware bounds** it is the intersection: the higher of
@@ -1118,13 +1185,9 @@ Normative rules:
   both means only the first. Only when no entry survives is it `NO_MATCH`.
 - When a variant is selected, tooling MUST enforce the package-level
   `capabilities`, `min_edgetx_version` and `max_edgetx_version` of **both** the
-  base manifest and the selected variant manifest. This is not inheritance — the
-  variant does not acquire the base's values, and neither set is merged into the
-  other — it is that both were declared and both mean what they say. Enforcing
-  only the variant's would make a bound on the base decorative, which is not how
-  any author reads it; enforcing only the base's would let a build install on
-  firmware its own manifest excludes. Where they disagree the stricter wins,
-  because both must hold.
+  base manifest and the selected variant manifest, with the stricter result
+  winning exactly as before. This check is separate from
+  `base_capabilities`/`capabilities_tighten`, which are explicit overlay fields.
 - **Variant nesting is not allowed.** A manifest loaded through a
   `variants[].path` reference MUST NOT itself declare `variants`. Resolution is
   exactly one level deep.
@@ -1341,8 +1404,8 @@ itself.
 | No `requires` entry names the manifest's own `id` | Comparing two values | `requires-self.yml` |
 | No two `requires` entries name the same `id` | `uniqueItems` compares whole objects, not one property | `duplicate-requires-id.yml` |
 | Two comparators form a non-empty range | The schema checks comparator shape, not satisfiability | `inverted-requires-range.yml` |
-| Content-item `name` values are unique | Cross-reference within the document | `duplicate-content-name.yml` |
-| No two content items resolve to one destination, compared case-insensitively | Needs both destinations resolved | `duplicate-destination.yml`, `case-only-destination-collision.yml` |
+| Content-item `name` values are unique, including across base + selected variant overlays | Cross-reference within the document, the selected variant entry, and the selected variant manifest | `duplicate-content-name.yml`, `variant-overlay-duplicate-name.yml`, `variant-overlay-entry-manifest-duplicate-name.yml` |
+| No two content items resolve to one destination, compared case-insensitively, including across base + selected variant overlays | Needs both destinations resolved | `duplicate-destination.yml`, `case-only-destination-collision.yml`, `variant-overlay-duplicate-destination.yml` |
 | No single-file item's destination is an ancestor of another item's, compared the same way at a `/` boundary | Needs the source tree, to know which items are single files | `ancestor-destination-overlap.yml` |
 | A variant entry's `min_edgetx_version` ≤ its `max_edgetx_version` after wildcard expansion | Comparing two values | `inverted-variant-range.yml` |
 | A file is not installed over a directory, or a directory over a file — checked with the other collisions, before anything is written. Both directions, and for **every ancestor** of a staged file, owned or not: a package installing `A/b.lua` destroys another package's file `A`, and a user's own file at `A` kills the copy after the marker is written. Batch members are checked against each other the same way, not merely for equal destinations | Needs the source tree and the card | `dest-kind-mismatch.yml` |
@@ -1382,7 +1445,7 @@ repository — see
 | Tooling's own compile never overwrites a `.luac` the package ships | [Content item fields](#content-item-fields) |
 | Variant selection matches a firmware bound and counts each as one leaf field | [Selection](#selection) |
 | A matching entry whose variant manifest excludes this radio is dropped and selection re-run | [Variants](#variants) |
-| A base and its selected variant declaring one capability field with different values is rejected | [Variants](#variants) |
+| `base_capabilities` and `capabilities_tighten` merge only by adding fields or repeating the same value; a conflicting leaf is rejected | [Variants](#variants) |
 | Destination checks cover `dev` items whether or not `--dev` was passed | [Content item fields](#content-item-fields) |
 | Batch members are checked against each other for the `.lua`/`.luac` pair, which ownership cannot see | [State.md § Durability](./State.md#durability) |
 | The inventory bound is checked before the operation marker is written | [State.md § Resource limits](./State.md#resource-limits) |

@@ -83,6 +83,14 @@ SEMANTIC_ONLY = {
     # A variant entry whose firmware bounds are inverted. The schema checks each
     # bound's grammar; comparing the two is not a pattern.
     "inverted-variant-range.yml",
+    # Base content plus a selected variant entry's inline overlay share a name.
+    "variant-overlay-duplicate-name.yml",
+    # Inline content on the selected variant entry and the selected variant
+    # manifest itself share a name.
+    "variant-overlay-entry-manifest-duplicate-name.yml",
+    # Base content plus a selected variant entry's inline overlay resolve to one
+    # destination.
+    "variant-overlay-duplicate-destination.yml",
     # Two destinations differing only in case, which FAT32 does not distinguish.
     "case-only-destination-collision.yml",
     # A single-file source whose dest names an existing directory.
@@ -100,6 +108,10 @@ STATE_MULTIFILE_EXPECTED = {
 # .operation).
 STATE_FAMILY: dict = {}
 ALL_SCHEMAS: dict = {}
+CONTENT_SECTIONS = (
+    "libraries", "tools", "widgets", "telemetry", "functions",
+    "mixes", "sounds", "images", "themes", "files"
+)
 
 
 def markdown_files() -> list[pathlib.Path]:
@@ -276,6 +288,92 @@ def check_state_multifile_semantics() -> tuple[int, int]:
         return (0, 1)
     print(f"  PASS  duplicate-package-key  ({len(files)} files share one (id, commit) key)")
     return (1, 0)
+
+
+def check_variant_overlay_semantics() -> tuple[int, int]:
+    """Exercise merged-content rules for base + selected variant-entry overlays."""
+    directory = REPO_ROOT / "conformance" / "invalid"
+    expectations = {
+        "variant-overlay-duplicate-name.yml": "name",
+        "variant-overlay-entry-manifest-duplicate-name.yml": "name",
+        "variant-overlay-duplicate-destination.yml": "destination",
+    }
+
+    def content_items(doc: dict) -> list[tuple[str, dict]]:
+        out = []
+        for section in CONTENT_SECTIONS:
+            out.extend((section, item) for item in (doc.get(section) or []))
+        return out
+
+    def duplicate_name(items: list[tuple[str, dict]]) -> str | None:
+        seen = set()
+        for _, item in items:
+            name = item.get("name")
+            if name in seen:
+                return name
+            seen.add(name)
+        return None
+
+    def effective_destination(section: str, item: dict) -> str:
+        # Manifest content-item destinations are already SD-root-relative across
+        # all sections, but keep the section alongside the item so this helper
+        # follows the manifest model rather than flattening it away.
+        _ = section
+        return (item.get("dest") or item.get("path") or "").casefold()
+
+    def duplicate_destination(items: list[tuple[str, dict]]) -> str | None:
+        seen = set()
+        for section, item in items:
+            dest = effective_destination(section, item)
+            if dest in seen:
+                return dest
+            seen.add(dest)
+        return None
+
+    passes = failures = 0
+    for name, mode in expectations.items():
+        path = directory / name
+        if not path.exists():
+            print(f"  FAIL  {path.relative_to(REPO_ROOT)}  missing fixture")
+            failures += 1
+            continue
+        doc = yaml.safe_load(path.read_text()) or {}
+        variants = ((doc.get("package") or {}).get("variants") or [])
+        if len(variants) != 1:
+            print(f"  FAIL  {path.relative_to(REPO_ROOT)}  expected exactly 1 variant entry")
+            failures += 1
+            continue
+        variant_path = (path.parent / variants[0].get("path", "")).resolve()
+        try:
+            variant_path.relative_to(path.parent.resolve())
+        except ValueError:
+            print(f"  FAIL  {path.relative_to(REPO_ROOT)}  referenced variant manifest escapes fixture directory")
+            failures += 1
+            continue
+        if not variant_path.exists():
+            print(f"  FAIL  {path.relative_to(REPO_ROOT)}  referenced variant manifest is missing")
+            failures += 1
+            continue
+        variant_doc = yaml.safe_load(variant_path.read_text()) or {}
+        base_id = ((doc.get("package") or {}).get("id") or "").lower()
+        variant_id = ((variant_doc.get("package") or {}).get("id") or "").lower()
+        if variant_id != base_id:
+            print(f"  FAIL  {path.relative_to(REPO_ROOT)}  referenced variant manifest id does not match base")
+            failures += 1
+            continue
+        if ((variant_doc.get("package") or {}).get("variants")):
+            print(f"  FAIL  {path.relative_to(REPO_ROOT)}  referenced variant manifest declares nested variants")
+            failures += 1
+            continue
+        merged = content_items(doc) + content_items(variants[0]) + content_items(variant_doc)
+        found = duplicate_name(merged) if mode == "name" else duplicate_destination(merged)
+        if found is None:
+            print(f"  FAIL  {path.relative_to(REPO_ROOT)}  merged base+variant overlay did not collide")
+            failures += 1
+            continue
+        print(f"  PASS  {path.relative_to(REPO_ROOT)}  (merged {mode} collision detected)")
+        passes += 1
+    return (passes, failures)
 
 
 def doc_examples(top_level: set[str]) -> list[tuple[str, object, str]]:
@@ -1404,6 +1502,11 @@ def run() -> bool:
 
     print("=== State multi-file semantics ===")
     p, f = check_state_multifile_semantics()
+    passed, failed = passed + p, failed + f
+    print()
+
+    print("=== Variant overlay semantics ===")
+    p, f = check_variant_overlay_semantics()
     passed, failed = passed + p, failed + f
     print()
 

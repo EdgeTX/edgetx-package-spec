@@ -1,0 +1,17 @@
+# SEMANTIC-ONLY: base content and the selected variant's merged content resolve
+# to the same destination. Destination collisions are checked after the base,
+# selected entry, and selected variant manifest are merged.
+edgetx_format_version: "1.1"
+package:
+  id: github.com/acme/overlay-dest-collision
+  description: Package whose variant overlay duplicates a base destination
+  variants:
+    - path: invalid-variants/duplicate-destination.color.yml
+      tools:
+        - name: ColorTool
+          path: SCRIPTS/TOOLS/Variant
+          dest: SCRIPTS/TOOLS/VariantOnly
+tools:
+  - name: BaseTool
+    path: SCRIPTS/TOOLS/Base
+    dest: SCRIPTS/TOOLS/Shared

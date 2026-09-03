@@ -1,0 +1,26 @@
+# A base manifest using explicit variant overlays. `base_capabilities` is
+# inherited by every selected variant, `capabilities_tighten` narrows it after
+# selection, and base content sections are merged with inline variant-entry
+# content and the selected variant manifest's own content.
+edgetx_format_version: "1.1"
+base_capabilities:
+  display:
+    type: colorlcd
+    touch: false
+package:
+  id: github.com/acme/overlay-demo
+  description: Package using variant overlays
+  variants:
+    - path: variants/480x272.yml
+      capabilities:
+        display:
+          type: colorlcd
+      capabilities_tighten:
+        display:
+          resolution: 480x272
+      tools:
+        - name: Tool480
+          path: SCRIPTS/TOOLS/Tool480
+libraries:
+  - name: Common
+    path: SCRIPTS/LIBS/Common

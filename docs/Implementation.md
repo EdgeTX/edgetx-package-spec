@@ -44,6 +44,7 @@ select_variant(base, dir, radio, firmware) -> variant_path | NO_MATCH | AMBIGUOU
 filter_match(v, radio, firmware)         -> {matches: bool, unknown: [field]}
 filter_specificity(v, radio, firmware)   -> int   # capabilities AND firmware bounds
 load_selected_variant(base, dir, path)   -> manifest | error
+merge_capabilities(base, tighten)        -> capabilities | error
 still_installable(m, radio, firmware)    -> bool   # m's own package constraints
 check_firmware_version(min, max, running) -> ok | fail(code)
 check_capabilities(filter, radio)        -> ok | fail(code)
@@ -272,8 +273,18 @@ repo root.
 
 *Normative rules: [Manifest.md § Variants](./Manifest.md#variants), [§ Selection](./Manifest.md#selection).*
 
-A variant manifest is a complete manifest, so selection is just "pick a file,
-then load it normally".
+Selection still picks a file, but the install input is no longer "that file
+alone". Base content sections and `base_capabilities`, plus any inline overlay
+fields on the selected `variants[]` entry, are merged after selection.
+
+The loading sequence is:
+
+1. load the base manifest
+2. select a variant entry by capability or explicit request
+3. load the selected variant manifest
+4. merge `base_capabilities` with that entry's `capabilities_tighten`
+5. merge all content sections from base, selected entry, and selected variant
+6. validate the merged content for duplicate names and destination collisions
 
 A variant entry's filter is **not** just `capabilities`: `min_edgetx_version` and
 `max_edgetx_version` are part of it, they filter, and they count for specificity.
@@ -377,6 +388,9 @@ first-wins maximum.
 
 ```text
 load_selected_variant(base, base_dir, variant_path):
+    entry = first v in base.package.variants where v.path == variant_path
+    if entry is null:
+        error("selected variant " + variant_path + " is not declared")
     path = base_dir / variant_path
     require path stays inside base_dir
     m = read_manifest(path)
@@ -385,12 +399,34 @@ load_selected_variant(base, base_dir, variant_path):
               " but its base declares " + base.package.id)
     if m.package.variants is present:
         error("variant manifests cannot declare further variants")
-    return m
+    return merge_variant(base, entry, m)
 ```
 
-Note what is *not* here: no field inheritance and no capability merging. The
-variant manifest replaces the base wholesale, and `variants[].capabilities` is
-used only to choose it.
+```text
+merge_variant(base, entry, variant):
+    merged = copy of variant
+
+    # Selection uses only entry.capabilities and firmware bounds. The explicit
+    # overlay fields apply only after the entry has already won.
+    merged.base_capabilities =
+        merge_capabilities(base.base_capabilities, entry.capabilities_tighten)
+
+    for section in [libraries, tools, widgets, telemetry, functions,
+                    mixes, sounds, images, themes, files]:
+        merged[section] =
+            (base[section] or [])
+            + (entry[section] or [])
+            + (variant[section] or [])
+
+    require unique content-item names across every merged section
+    require unique destinations across every merged section, case-insensitively
+    return merged
+```
+
+There is still no *general* field inheritance. Only the explicit overlay fields
+above are merged. The selected variant manifest keeps responsibility for its own
+package block and `requires`, and both its package-level constraints and the
+base manifest's package-level constraints are still enforced.
 
 ```text
 capabilities_match(filter, radio) -> {matches, unknown}:
