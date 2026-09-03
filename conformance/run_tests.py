@@ -343,7 +343,13 @@ def check_variant_overlay_semantics() -> tuple[int, int]:
             print(f"  FAIL  {path.relative_to(REPO_ROOT)}  expected exactly 1 variant entry")
             failures += 1
             continue
-        variant_path = path.parent / variants[0].get("path", "")
+        variant_path = (path.parent / variants[0].get("path", "")).resolve()
+        try:
+            variant_path.relative_to(path.parent.resolve())
+        except ValueError:
+            print(f"  FAIL  {path.relative_to(REPO_ROOT)}  referenced variant manifest escapes fixture directory")
+            failures += 1
+            continue
         if not variant_path.exists():
             print(f"  FAIL  {path.relative_to(REPO_ROOT)}  referenced variant manifest is missing")
             failures += 1
