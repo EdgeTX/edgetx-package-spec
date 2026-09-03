@@ -1,15 +1,14 @@
 # expect: 'a4d81f0' does not match
 # INVALID: an abbreviated commit id. State records what is actually installed, and
 # a short id is ambiguous across a repository's lifetime.
-edgetx_format_version: "1.0"
-packages:
-  - id: github.com/acme/short-commit
-    version: "1.0.0"
-    reason: explicit
-    requires: []
-    source:
-      repo: github.com/acme/short-commit
-      channel: tag
-      ref: "v1.0.0"
-      commit: "a4d81f0"
-      manifest_path: "edgetx.yml"
+edgetx_format_version: "1.1"
+id: github.com/acme/short-commit
+version: "1.0.0"
+reason: explicit
+requires: []
+source:
+  repo: github.com/acme/short-commit
+  channel: tag
+  ref: "v1.0.0"
+  commit: "a4d81f0"
+  manifest_path: "edgetx.yml"

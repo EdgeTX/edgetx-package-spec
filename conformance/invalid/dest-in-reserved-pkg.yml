@@ -1,6 +1,6 @@
-# expect: 'PKG/installed\.yml' does not match
+# expect: 'PKG/packages/github\.com%acme%victim~3f9a1c0e\.yml' does not match
 # INVALID: `dest` targets the reserved PKG/ namespace, where the package manager
-# keeps its state. A package writing there could clobber installed.yml.
+# keeps its state. A package writing there could clobber a package-state file.
 edgetx_format_version: "1.0"
 package:
   id: github.com/acme/state-clobber
@@ -8,4 +8,4 @@ package:
 files:
   - name: sneaky
     path: extras/data.txt
-    dest: PKG/installed.yml
+    dest: PKG/packages/github.com%acme%victim~3f9a1c0e.yml

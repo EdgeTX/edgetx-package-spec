@@ -56,9 +56,6 @@ SEMANTIC_ONLY = {
     # A variant manifest declaring an id that differs from its base. Valid as a
     # standalone manifest; invalid only in the context it is loaded from.
     "variant-id-mismatch.yml",
-    # Two state entries sharing an id. `uniqueItems` compares whole objects, so
-    # JSON Schema cannot express uniqueness by one property.
-    "duplicate-package-id.yml",
     # `source.repo` that is not a path prefix of `id`. Repository depth varies by
     # host, so no pattern can say where the repo ends and the subpackage begins;
     # comparing the two values can.
@@ -90,7 +87,8 @@ SEMANTIC_ONLY = {
 
 
 # Set once in run(): the loaded state schema, used as a sentinel so check_dir
-# knows a directory holds state-family documents (installed.yml or .operation).
+# knows a directory holds state-family documents (a package-state file or
+# .operation).
 STATE_FAMILY: dict = {}
 ALL_SCHEMAS: dict = {}
 
@@ -184,24 +182,28 @@ def as_whole_manifest(doc: dict) -> dict:
 
 
 def looks_like_state(doc) -> bool:
-    return isinstance(doc, dict) and isinstance(doc.get("packages"), list)
+    return isinstance(doc, dict) and (
+        isinstance(doc.get("packages"), list)
+        or {"id", "reason", "source", "requires"} <= set(doc.keys())
+    )
 
 
 def state_family_schema(doc, state_schema: dict, name: str = "") -> dict:
     """Pick the right schema for a state-family document.
 
-    PKG/installed.yml and PKG/.operation are separate formats that both live
-    under State.md, so the directory alone cannot say which one a fixture is.
+    PKG/packages/<package-key>.yml and PKG/.operation are separate formats that
+    both live under State.md, so the directory alone cannot say which one a
+    fixture is.
 
     A fixture named `marker-*` is ALWAYS a marker. Discriminating only on a key
     lets a fixture that omits that key dodge its own schema: a marker missing
-    `operation` was routed to installed.yml and "rejected as expected" for
-    'packages' is a required property, leaving the marker's own contract
+    `operation` was routed to the package-state schema and "rejected as
+    expected" for a different reason, leaving the marker's own contract
     untested — the exact failure this function's design was meant to prevent.
     """
-    if name.startswith("marker-") or "packages" not in (doc or {}):
+    if name.startswith("marker-") or ("operation" in (doc or {}) and "id" not in (doc or {})):
         # Validate against the sub-schema alone: keep $defs so internal $refs
-        # resolve, drop the document-level rules of installed.yml.
+        # resolve, drop the document-level rules of the package-state file.
         return {"$schema": state_schema["$schema"],
                 "$defs": state_schema["$defs"],
                 "$ref": "#/$defs/operationMarker"}
@@ -214,7 +216,7 @@ def looks_like_marker(doc) -> bool:
     Routes on the discriminant rather than on the whole key set. A closed key set
     would reject a legal marker carrying a field from a later MINOR bump — which
     State.md requires tooling to tolerate — and would route an invalid marker to
-    the installed.yml schema, where it fails for an unrelated reason and its own
+    the package-state schema, where it fails for an unrelated reason and its own
     contract goes untested.
     """
     return isinstance(doc, dict) and "operation" in doc and "packages" not in doc
@@ -388,11 +390,23 @@ def check_file_list_examples(manifest_schema: dict) -> tuple[int, int]:
         # prose introducing it names the file-list format.
         for m in re.finditer(r"(?s)(.{0,900}?)```text\n(.*?)```", text):
             preamble, block = m.group(1), m.group(2)
-            if "PKG/files" not in preamble and "files/" not in block.split("\n")[0]:
+            first_line = block.split("\n")[0]
+            mentions_file_list = (
+                "PKG/files" in preamble
+                or ("PKG/packages/" in preamble and ".list" in preamble)
+                or "files/" in first_line
+                or "packages/" in first_line
+            )
+            if not mentions_file_list:
                 continue
             lines = [l for l in block.split("\n")
                      if l.strip() and not l.lstrip().startswith("#")]
             if not lines:
+                continue
+            # A block showing the path of the .list file itself is not a file
+            # list example; file lists contain installed SD-card paths, never
+            # PKG/ paths.
+            if lines[0].startswith("PKG/"):
                 continue
             # A directory tree also sits under a PKG/ heading. A file list holds
             # files: no box-drawing characters, and no line naming a directory.
@@ -506,7 +520,7 @@ def check_fixture_index() -> tuple[int, int]:
     invalid_dirs = [REPO_ROOT / "conformance" / "invalid",
                     REPO_ROOT / "conformance" / "state-invalid"]
     # Scan the Validation summary only. Scanning the whole document swept up
-    # real SD-card paths discussed in prose (`PKG/installed.yml`) and called them
+    # real SD-card paths discussed in prose (`PKG/packages/...`) and called them
     # missing fixtures.
     summary = ""
     extra_failures: list[str] = []
@@ -675,9 +689,6 @@ STATE_ONLY = {
     "/$defs/gitRefName": (
         "the tag or branch installed from; state-only, and fed to a fetch",
         {"pattern": ref_pattern(), "minLength": 1, "maxLength": 255}),
-    "/properties/packages": (
-        "the installed-package list; a manifest has no counterpart",
-        {"maxItems": 512}),
 }
 
 # Cross-named duplicates: the same constraint reached by a different route in each

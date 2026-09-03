@@ -11,7 +11,7 @@
   "properties": {
     "edgetx_format_version": {
       "type": "string",
-      "description": "Revision of the EdgeTX package file format this manifest conforms to, as MAJOR.MINOR (e.g. \"1.0\"). Absent means \"1.0\". The same field and numbering appear in PKG/installed.yml. Tooling MUST refuse a MAJOR it does not know, and MUST process a known MAJOR with a higher MINOR while ignoring fields it does not recognise. See docs/Manifest.md.",
+      "description": "Revision of the EdgeTX package file format this manifest conforms to, as MAJOR.MINOR (e.g. \"1.0\"). Absent means \"1.0\". The same field and numbering appear in PKG/packages/<package-key>.yml. Tooling MUST refuse a MAJOR it does not know, and MUST process a known MAJOR with a higher MINOR while ignoring fields it does not recognise. See docs/Manifest.md.",
       "pattern": "^(?![\\s\\S]*[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029])(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
     },
     "package": {

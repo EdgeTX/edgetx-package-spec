@@ -1,7 +1,7 @@
 # File-list fixtures
 
-`PKG/files/<package-id>.list` is a normative format — see
-[State.md](../../docs/State.md#pkgfilespackage-idlist) — but it is a
+`PKG/packages/<package-key>.list` is a normative format — see
+[State.md](../../docs/State.md#pkgpackagespackage-keylist) — but it is a
 line-oriented text file, so no JSON Schema reaches it. These fixtures give it the
 same treatment the YAML formats get.
 
@@ -22,9 +22,9 @@ The first line of every `invalid-*.list` is a directive naming the rule the
 fixture pins:
 
 ```text
-# expect: PKG/installed\.yml
+# expect: PKG/packages/.+\.yml
 SCRIPTS/TOOLS/ok.lua
-PKG/installed.yml
+PKG/packages/github.com%acme%victim~3f9a1c0e.yml
 ```
 
 The value is a regular expression matched against the runner's report of the
@@ -38,6 +38,6 @@ unnoticed — which is what happened before the directive existed.
 
 The runner skips lines beginning with `#`, which is how the directive stays out
 of the data. This is a convention of these fixtures **only** — `State.md` defines
-no comment syntax for the format, and a real `PKG/files/*.list` has none. A path
+no comment syntax for the format, and a real `PKG/packages/*.list` has none. A path
 beginning with `#` is legal on an SD card and cannot be expressed in a fixture;
 that is an accepted limitation of the harness, not a rule about the format.
