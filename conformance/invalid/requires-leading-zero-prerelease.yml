@@ -1,4 +1,4 @@
-# expect: '\^1\.2\.3-01' does not match
+# expect: '\^1\.2\.3-03' does not match
 # INVALID: a dependency range uses the same strict semver grammar as
 # `package.version`, so a numeric prerelease identifier must not carry a leading
 # zero here either.
@@ -8,4 +8,4 @@ package:
   description: Package whose dependency range uses an invalid prerelease
 requires:
   - id: github.com/someone/elrs-libs
-    version: "^1.2.3-01"
+    version: "^1.2.3-03"

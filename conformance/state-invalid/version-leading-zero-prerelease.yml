@@ -1,16 +1,16 @@
-# expect: '1\.2\.3-01' does not match
+# expect: '1\.2\.3-02' does not match
 # INVALID: state stores the manifest's canonical version, so it uses the same
 # strict semver grammar and must reject numeric prerelease identifiers with
 # leading zeroes.
 edgetx_format_version: "1.0"
 packages:
   - id: github.com/acme/bad-state-version
-    version: "1.2.3-01"
+    version: "1.2.3-02"
     reason: explicit
     requires: []
     source:
       repo: github.com/acme/bad-state-version
       channel: tag
-      ref: v1.2.3-01
+      ref: v1.2.3-02
       commit: "3f9a1c0e4b7d2a5f8c1e6b0d9a4f7c2e5b8d1a03"
       manifest_path: "edgetx.yml"

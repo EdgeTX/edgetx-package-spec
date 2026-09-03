@@ -645,9 +645,9 @@ def check_summary_halves(manifest_schema: dict, state_schema: dict) -> tuple[int
 # 999999 and a control-character ban be replaced by ^.+$ with a green suite.
 def ref_pattern() -> str:
     """The git-refname constraint, kept in one place so the pin cannot drift."""
-    guard = "(?![\\s\\S]*[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029])"
-    no_traversal = "(?!.*(^|/)\\.\\.?(/|$))(?!/)(?!.*/$)(?!.*\\.lock$)(?!.*//)"
-    return "^" + guard + no_traversal + "(?!-)[A-Za-z0-9._/-]+$"
+    return ("^(?![\\s\\S]*[\\x00-\\x20\\x7f-\\x9f\\u2028\\u2029])(?!-)(?!/)"
+            "(?!.*//)(?!.*\\.\\.)(?!.*@\\{)(?!.*(?:^|/)\\.)(?!.*(?:^|/)"
+            "[^/]*\\.lock(?:/|$))(?!.*[/.]$)(?!@$)[^~^:?*\\[\\\\]+$")
 
 
 STATE_ONLY = {
@@ -660,9 +660,9 @@ STATE_ONLY = {
     "/$defs/source/properties/commit": (
         "state records what is installed",
         {"pattern": "^(?![\\s\\S]*[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029])([0-9a-f]{40}|[0-9a-f]{64})$"}),
-        "/$defs/source/properties/path": (
+    "/$defs/localAbsolutePath": (
         "an absolute host path; the only non-SD path",
-            {"pattern": "^(?![\\s\\S]*[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029])(?:/.*|[A-Za-z]:/.*)$", "minLength": 1, "maxLength": 4096}),
+        {"pattern": "^(?![\\s\\S]*[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029])(?:/(?:.*)?|[A-Za-z]:(?:[\\\\/].*)?)$", "minLength": 1, "maxLength": 4096}),
     "/$defs/operationMarker/properties/operation": (
         "the marker's own enum",
         {"enum": ["install", "update", "remove"]}),
@@ -672,9 +672,9 @@ STATE_ONLY = {
     "/$defs/source/properties/channel": (
         "how a version resolved; a manifest has no channel",
         {"enum": ["tag", "branch", "commit", "local"]}),
-        "/$defs/source/properties/ref": (
+    "/$defs/gitRefName": (
         "the tag or branch installed from; state-only, and fed to a fetch",
-        {"pattern": "^(?![\\s\\S]*[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029])(?!.*\\.\\.)(?!.*(^|/)\\.(/|$))(?!/)(?!.*/$)(?!.*\\.lock$)(?!.*//)(?!-)[A-Za-z0-9._/-]+$", "minLength": 1, "maxLength": 255}),
+        {"pattern": ref_pattern(), "minLength": 1, "maxLength": 255}),
     "/properties/packages": (
         "the installed-package list; a manifest has no counterpart",
         {"maxItems": 512}),
@@ -685,9 +685,7 @@ STATE_ONLY = {
 # and `packageBlock.properties.version` are the same rule — so they are declared,
 # and anything NOT declared and NOT in STATE_ONLY fails.
 CROSS_NAMED = {
-    "/$defs/semver": "/$defs/packageBlock/properties/version",
     "/$defs/variantPath": "/$defs/variant/properties/path",
-    "/$defs/requirement/properties/version": "/$defs/requirement/properties/version",
     "/properties/edgetx_format_version": "/properties/edgetx_format_version",
     # A display name is the same field in both formats, so the same bound applies.
     "/$defs/installedPackage/properties/name": "/$defs/packageBlock/properties/name",

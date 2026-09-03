@@ -533,11 +533,11 @@ Where each rule in this document is checked. Same three-part split as
 | `source.commit` is 40 or 64 lowercase hex characters | `abbreviated-commit.yml` |
 | `source.path` is present when `channel` is `local`, and `commit`/`ref` are null there | `local-without-path.yml`, `local-with-commit.yml`, `local-with-ref.yml` |
 | Remote sources do not record a host-local `source.path`, and `channel: commit` records no `ref` | `remote-with-local-path.yml`, `commit-with-ref.yml` |
-| `source.path` is absolute and carries no control characters | `relative-local-path.yml`, `control-char-local-path.yml`, `local-absolute-paths.yml` |
+| `source.path` is absolute and carries no control characters | `relative-local-path.yml`, `control-char-local-path.yml` |
 | `variant` and `source.manifest_path` satisfy the [path rules](./Manifest.md#path-rules) | `variant-path-escape.yml` |
 | `version` is strict semver | `version-leading-zero-prerelease.yml` |
 | `requires[].version` matches the manifest's range grammar | `requires-leading-zero-prerelease.yml` |
-| `source.ref` is a legal git refname with no traversal | `source-channel-combinations.yml`, `ref-traversal.yml`, `ref-leading-dot-component.yml`, `ref-lock-component.yml`, `ref-trailing-dotdot.yml` |
+| `source.ref` is a legal git refname with no traversal | `ref-traversal.yml`, `ref-leading-dot-component.yml`, `ref-lock-component.yml`, `ref-trailing-dotdot.yml` |
 | At most 512 packages and 64 `requires` entries per package | — |
 | Timestamps use the `Z` UTC designator | `timestamp-with-offset.yml` |
 | A marker declares `operation`, `package_id` and `started_at` | `marker-missing-operation.yml` |
