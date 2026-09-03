@@ -89,6 +89,11 @@ SEMANTIC_ONLY = {
     "dest-kind-mismatch.yml",
 }
 
+STATE_MULTIFILE_EXPECTED = {
+    "duplicate-package-key-a.yml": "PKG/packages/github.com%acme%simple-tool~3f9a1c0e.yml",
+    "duplicate-package-key-b.yml": "PKG/packages/github.com%acme%simple-tool~3f9a1c0e.yml",
+}
+
 
 # Set once in run(): the loaded state schema, used as a sentinel so check_dir
 # knows a directory holds state-family documents (a package-state file or
@@ -188,7 +193,7 @@ def as_whole_manifest(doc: dict) -> dict:
 def looks_like_state(doc) -> bool:
     return isinstance(doc, dict) and (
         isinstance(doc.get("packages"), list)
-        or {"id", "reason", "source", "requires"} <= set(doc.keys())
+        or ("id" in doc and "reason" in doc and isinstance(doc.get("source"), dict))
     )
 
 
@@ -205,12 +210,16 @@ def state_family_schema(doc, state_schema: dict, name: str = "") -> dict:
     expected" for a different reason, leaving the marker's own contract
     untested — the exact failure this function's design was meant to prevent.
     """
-    if name.startswith("marker-") or (
-            "operation" in (doc or {})
-            and not {"id", "reason", "source", "requires"} <= set((doc or {}).keys())
-    ):
+    if name.startswith("marker-"):
         # Validate against the sub-schema alone: keep $defs so internal $refs
         # resolve, drop the document-level rules of the package-state file.
+        return {"$schema": state_schema["$schema"],
+                "$defs": state_schema["$defs"],
+                "$ref": "#/$defs/operationMarker"}
+    if name:
+        return state_schema
+    if ("operation" in (doc or {})
+            and not {"id", "reason", "source", "requires"} <= set((doc or {}).keys())):
         return {"$schema": state_schema["$schema"],
                 "$defs": state_schema["$defs"],
                 "$ref": "#/$defs/operationMarker"}
@@ -255,7 +264,7 @@ def check_state_multifile_semantics() -> tuple[int, int]:
     if len(set(keys)) != 1:
         print("  FAIL  duplicate-package-key: fixtures do not share one (id, commit) key")
         return (0, 1)
-    declared_paths = [doc.get("state_file") for doc in docs]
+    declared_paths = [STATE_MULTIFILE_EXPECTED.get(path.name) for path in files]
     expected_paths = [expected_state_file(doc) for doc in docs]
     if declared_paths != expected_paths:
         print("  FAIL  duplicate-package-key: fixture state_file path does not match "
@@ -722,6 +731,9 @@ STATE_ONLY = {
         {"pattern": "^(?![\\s\\S]*[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029])[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?Z$"}),
     "/$defs/source/properties/commit": (
         "state records what is installed",
+        {"pattern": "^(?![\\s\\S]*[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029])([0-9a-f]{40}|[0-9a-f]{64})$"}),
+    "/$defs/requirement/properties/commit": (
+        "state may record which resolved dependency version was chosen",
         {"pattern": "^(?![\\s\\S]*[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029])([0-9a-f]{40}|[0-9a-f]{64})$"}),
     "/$defs/localAbsolutePath": (
         "an absolute host path; the only non-SD path",

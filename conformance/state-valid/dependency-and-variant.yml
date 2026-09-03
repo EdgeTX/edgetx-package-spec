@@ -15,3 +15,4 @@ source:
 requires:
   - id: github.com/someone/elrs-libs
     version: "^2.0.0"
+    commit: "a4d81f0c9e2b7a6f3d5c8e1b0a9f4c7d2e6b8a15"

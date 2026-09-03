@@ -85,6 +85,7 @@ source:
 requires:
   - id: github.com/someone/elrs-libs
     version: "^2.0.0"
+    commit: "a4d81f0c9e2b7a6f3d5c8e1b0a9f4c7d2e6b8a15"
 ```
 
 ### Required and optional fields
@@ -102,7 +103,7 @@ which any optional field is absent or `null`. **An absent field and an explicit
 | `variant` | no | The selected variant, or `null`. See [variant](#variant). |
 | `name` | no | Display name copied from the manifest. Presentation only; tooling MUST NOT key on it. |
 | `installed_at` | no | RFC 3339 timestamp with the `Z` UTC designator. Offset forms such as `+00:00` MUST NOT be used, so the value sorts and compares textually. |
-| `requires` | **yes** | Snapshot of the manifest's `requires` list, `[]` when the manifest declares none — see [Dependency snapshot](#dependency-snapshot). |
+| `requires` | **yes** | Snapshot of the manifest's `requires` list, `[]` when the manifest declares none. Each entry records the requested dependency id and range, and MAY also record the resolved dependency commit — see [Dependency snapshot](#dependency-snapshot). |
 
 ### Package keys and filenames
 
@@ -170,6 +171,14 @@ the manifest declares none. Tooling MUST record it, and every conforming
 implementation does: tooling that can fetch resolves `requires`, and tooling that
 cannot still has to know what a package asked for in order to refuse it and name
 what is missing. See [Manifest.md](./Manifest.md#requires--other-packages).
+
+Each snapshot entry records the dependency `id` and requested `version` range.
+When resolution chose one installed version among several packages sharing that
+`id`, the snapshot entry SHOULD also record the resolved dependency `commit`.
+That field is what lets orphan cleanup and remove-time reachability follow the
+same installed dependency later without re-solving history from the network.
+When only one installed version of that `id` exists, `commit` MAY be omitted for
+backward compatibility with older state files.
 
 Without the snapshot neither rule is computable offline: deciding whether a
 `reason: dependency` package is still needed means knowing what every installed
@@ -494,7 +503,9 @@ Requirements:
    whose state no longer matches the firmware, and `reason: dependency`
    packages that nothing requires. This replaces automatic rollback: it is
    inspectable, it needs no shadow copies of user data, and it also repairs
-   damage the package manager did not cause.
+   damage the package manager did not cause. Automatic orphan cleanup after
+   install, update and remove uses the same reachability rule described in
+   [Orphan removal and dependency reasons](#orphan-removal-and-dependency-reasons).
 
 Deliberately **not** required: per-file backups before overwrite, per-file
 checksums, lock files with process-liveness detection, and automatic
@@ -523,9 +534,15 @@ and its own file list — dependencies are not merged into their requirer.
   transitively requires, computed from the [dependency
   snapshots](#dependency-snapshot).
 - Reachability starts from every `reason: explicit` package-state file. Follow
-  each `requires` entry to every installed package whose `id` matches and whose
-  version satisfied that requirement when it was resolved; different requiring
-  packages MAY therefore keep different commits of one dependency alive.
+  each `requires` entry by `(id, commit)` when the snapshot recorded `commit`.
+  When it did not, and exactly one installed package with that `id` exists,
+  tooling MAY follow that one by `id` alone for backward compatibility.
+- If a snapshot omits `commit` and multiple installed versions of that `id`
+  exist, tooling MUST re-resolve before orphan cleanup or conservatively keep
+  all matching versions. It MUST NOT guess which installed commit had satisfied
+  the dependency.
+- Different requiring packages MAY therefore keep different commits of one
+  dependency alive.
 - A `reason: dependency` package that is not reachable from any explicit root is
   an orphan. Tooling SHOULD remove it automatically by deleting its state file,
   sibling file list and owned files, then repeating the scan until no new
@@ -580,7 +597,7 @@ Where each rule in this document is checked. Same three-part split as
 | `source.path` is absolute and carries no control characters | `relative-local-path.yml`, `control-char-local-path.yml` |
 | `variant` and `source.manifest_path` satisfy the [path rules](./Manifest.md#path-rules) | `variant-path-escape.yml` |
 | `version` is strict semver | `version-leading-zero-prerelease.yml` |
-| `requires[].version` matches the manifest's range grammar | `requires-leading-zero-prerelease.yml` |
+| `requires[].version` matches the manifest's range grammar, and `requires[].commit` is a full lowercase commit id when present | `requires-leading-zero-prerelease.yml` |
 | `source.ref` is a legal git refname with no traversal | `ref-traversal.yml`, `ref-leading-dot-component.yml`, `ref-lock-component.yml`, `ref-trailing-dotdot.yml` |
 | At most 64 `requires` entries per package-state file | — |
 | Timestamps use the `Z` UTC designator | `timestamp-with-offset.yml` |

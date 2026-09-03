@@ -2,7 +2,6 @@
 # commit)` key. Each file is valid alone; the duplicate exists only across the
 # pair of package-state files in this fixture set.
 edgetx_format_version: "1.1"
-state_file: PKG/packages/github.com%acme%simple-tool~3f9a1c0e.yml
 id: github.com/acme/simple-tool
 version: "1.0.0"
 reason: dependency

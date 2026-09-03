@@ -318,9 +318,14 @@
         },
         "version": {
           "$ref": "#/$defs/versionRequirement"
+        },
+        "commit": {
+          "type": "string",
+          "description": "The resolved dependency commit when one was chosen and needs to be distinguished from another installed version of the same id. Absent when only one installed version of that id exists, or when older state omitted it for backward compatibility.",
+          "pattern": "^(?![\\s\\S]*[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029])([0-9a-f]{40}|[0-9a-f]{64})$"
         }
       },
-      "description": "One entry of the package's requires list, snapshotted at install. See docs/State.md#dependency-snapshot."
+      "description": "One entry of the package's requires list, snapshotted at install. `commit` records which installed dependency version was chosen when multiple versions of the same id coexist. See docs/State.md#dependency-snapshot."
     },
     "operationMarker": {
       "type": "object",
