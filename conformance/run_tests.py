@@ -349,6 +349,16 @@ def check_variant_overlay_semantics() -> tuple[int, int]:
             failures += 1
             continue
         variant_doc = yaml.safe_load(variant_path.read_text()) or {}
+        base_id = ((doc.get("package") or {}).get("id") or "").lower()
+        variant_id = ((variant_doc.get("package") or {}).get("id") or "").lower()
+        if variant_id != base_id:
+            print(f"  FAIL  {path.relative_to(REPO_ROOT)}  referenced variant manifest id does not match base")
+            failures += 1
+            continue
+        if ((variant_doc.get("package") or {}).get("variants")):
+            print(f"  FAIL  {path.relative_to(REPO_ROOT)}  referenced variant manifest declares nested variants")
+            failures += 1
+            continue
         merged = content_items(doc) + content_items(variants[0]) + content_items(variant_doc)
         found = duplicate_name(merged) if mode == "name" else duplicate_destination(merged)
         if found is None:
