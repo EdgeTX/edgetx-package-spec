@@ -1,14 +1,13 @@
 # expect: 'release\.\.' does not match
 # INVALID: a git refname must not contain '..', including at the end.
-edgetx_format_version: "1.0"
-packages:
-  - id: github.com/acme/ref-trailing-dotdot
-    version: "1.0.0"
-    reason: explicit
-    requires: []
-    source:
-      repo: github.com/acme/ref-trailing-dotdot
-      channel: branch
-      ref: release..
-      commit: "3f9a1c0e4b7d2a5f8c1e6b0d9a4f7c2e5b8d1a03"
-      manifest_path: "edgetx.yml"
+edgetx_format_version: "1.1"
+id: github.com/acme/ref-trailing-dotdot
+version: "1.0.0"
+reason: explicit
+requires: []
+source:
+  repo: github.com/acme/ref-trailing-dotdot
+  channel: branch
+  ref: release..
+  commit: "3f9a1c0e4b7d2a5f8c1e6b0d9a4f7c2e5b8d1a03"
+  manifest_path: "edgetx.yml"

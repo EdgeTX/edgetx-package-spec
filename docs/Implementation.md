@@ -83,7 +83,7 @@ Two spellings of failure appear below. `error(msg)` is an ordinary abort, and
 code names used here are **illustrative** — the specification defines no error
 vocabulary, and a catalog and its clients that want to share one should agree it
 between themselves. Neither spelling is persisted: nothing about an operation's
-outcome is written to `PKG/installed.yml`, which records what is installed and
+outcome is written to `PKG/packages/*.yml`, which records what is installed and
 not how it went.
 
 Four contracts are worth stating explicitly, because getting them wrong is
@@ -148,7 +148,7 @@ check_edgetx_format_version(value):
         continue
 ```
 
-Apply the same parsing care to `PKG/installed.yml` and the file lists: they
+Apply the same parsing care to `PKG/packages/*.yml` and the file lists: they
 live on a removable card and may have been edited or truncated.
 
 ## Package references
@@ -859,7 +859,7 @@ Two points worth getting right:
 
 ## Install, update, remove
 
-*Normative rules: [State.md § installed.yml](./State.md#installedyml), [§ Durability](./State.md#durability), [Manifest.md § Manual selection and updates](./Manifest.md#manual-selection-and-updates).*
+*Normative rules: [State.md § PKG/packages/&lt;package-key&gt;.yml](./State.md#pkgpackagespackage-keyyml), [§ Durability](./State.md#durability), [Manifest.md § Manual selection and updates](./Manifest.md#manual-selection-and-updates).*
 
 All three follow one shape: work out what should be on the card, stage it,
 check it, write the marker, change the card, write state, clear the marker.
@@ -1247,49 +1247,49 @@ types — widgets in particular — through the `.lua`. A package that ships byt
 Fresh install, no variants, no dependencies:
 
 ```yaml
-# PKG/installed.yml
-edgetx_format_version: "1.0"
-packages:
-  - id: github.com/acme/simple-tool
-    name: Simple Tool
-    version: "1.0.0"
-    variant: null
-    reason: explicit
-    requires: []
-    installed_at: "2026-08-23T12:00:00Z"
-    source:
-      repo: github.com/acme/simple-tool
-      channel: tag
-      ref: "v1.0.0"
-      commit: "3f9a1c0e4b7d2a5f8c1e6b0d9a4f7c2e5b8d1a03"
-      origin: null
-      path: null
-      manifest_path: "edgetx.yml"
+# PKG/packages/github.com%acme%simple-tool~3f9a1c0e.yml
+edgetx_format_version: "1.1"
+id: github.com/acme/simple-tool
+name: Simple Tool
+version: "1.0.0"
+variant: null
+reason: explicit
+requires: []
+installed_at: "2026-08-23T12:00:00Z"
+source:
+  repo: github.com/acme/simple-tool
+  channel: tag
+  ref: "v1.0.0"
+  commit: "3f9a1c0e4b7d2a5f8c1e6b0d9a4f7c2e5b8d1a03"
+  origin: null
+  path: null
+  manifest_path: "edgetx.yml"
 ```
 
 ```text
-# PKG/files/github.com%acme%simple-tool.list
+# PKG/packages/github.com%acme%simple-tool~3f9a1c0e.list
 SCRIPTS/TOOLS/simple-tool.lua
 ```
 
 A package installed to satisfy another package's `requires`:
 
 ```yaml
-packages:
-  - id: github.com/someone/elrs-libs
-    version: "2.1.0"
-    variant: null
-    reason: dependency          # nothing asked for it directly
-    requires: []
-    installed_at: "2026-08-23T12:41:00Z"
-    source:
-      repo: github.com/someone/elrs-libs
-      channel: tag
-      ref: "v2.1.0"
-      commit: "a4d81f0c9e2b7a6f3d5c8e1b0a9f4c7d2e6b8a15"
-      origin: null
-      path: null
-      manifest_path: "edgetx.yml"
+# PKG/packages/github.com%someone%elrs-libs~a4d81f0c.yml
+edgetx_format_version: "1.1"
+id: github.com/someone/elrs-libs
+version: "2.1.0"
+variant: null
+reason: dependency          # nothing asked for it directly
+requires: []
+installed_at: "2026-08-23T12:41:00Z"
+source:
+  repo: github.com/someone/elrs-libs
+  channel: tag
+  ref: "v2.1.0"
+  commit: "a4d81f0c9e2b7a6f3d5c8e1b0a9f4c7d2e6b8a15"
+  origin: null
+  path: null
+  manifest_path: "edgetx.yml"
 ```
 
 A package fetched from a fork declares one id but came from elsewhere; record
@@ -1297,17 +1297,19 @@ that in `source.origin` and tell the user, because it means updates track the
 fork rather than the upstream project:
 
 ```yaml
-packages:
-  - id: github.com/acme/new-widget
-    version: "2.0.0"
-    reason: explicit
-    requires: []
-    source:
-      repo: github.com/acme/new-widget          # from package.id
-      channel: branch
-      ref: "experimental"
-      commit: "b1e4a7c0d3f6295e8b1c4a7d0f3e6b9c2a5d8f1e"
-      origin: github.com/contributor/new-widget # actually fetched from here
-      path: null
-      manifest_path: "edgetx.yml"
+# PKG/packages/github.com%acme%new-widget~b1e4a7c0.yml
+edgetx_format_version: "1.1"
+id: github.com/acme/new-widget
+version: "2.0.0"
+reason: explicit
+requires: []
+installed_at: "2026-08-23T12:42:00Z"
+source:
+  repo: github.com/acme/new-widget          # from package.id
+  channel: branch
+  ref: "experimental"
+  commit: "b1e4a7c0d3f6295e8b1c4a7d0f3e6b9c2a5d8f1e"
+  origin: github.com/contributor/new-widget # actually fetched from here
+  path: null
+  manifest_path: "edgetx.yml"
 ```

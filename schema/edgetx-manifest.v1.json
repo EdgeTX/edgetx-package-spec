@@ -11,7 +11,7 @@
   "properties": {
     "edgetx_format_version": {
       "type": "string",
-      "description": "Revision of the EdgeTX package file format this manifest conforms to, as MAJOR.MINOR (e.g. \"1.0\"). Absent means \"1.0\". The same field and numbering appear in PKG/installed.yml. Tooling MUST refuse a MAJOR it does not know, and MUST process a known MAJOR with a higher MINOR while ignoring fields it does not recognise. See docs/Manifest.md.",
+      "description": "Revision of the EdgeTX package file format this manifest conforms to, as MAJOR.MINOR (e.g. \"1.0\"). Absent means \"1.0\". The same field and numbering appear in PKG/packages/<package-key>.yml. Tooling MUST refuse a MAJOR it does not know, and MUST process a known MAJOR with a higher MINOR while ignoring fields it does not recognise. See docs/Manifest.md.",
       "pattern": "^(?![\\s\\S]*[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029])(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
     },
     "package": {
@@ -74,9 +74,9 @@
     },
     "packageId": {
       "type": "string",
-      "description": "Canonical package identifier: the git repo location without scheme, plus any subpackage path. At least host/owner/repo (3 slash-separated segments); the first segment must contain a dot. No segment may end in '.git', compared case-insensitively \u2014 the suffix belongs to a clone URL, not to an identity. The id is case-insensitive throughout and is lowercased before being stored or compared, because it becomes a FAT32 filename in PKG/files/. Capped at 249 characters so that name stays within the FAT32 limit. See docs/Manifest.md#package-id.",
+      "description": "Canonical package identifier: the git repo location without scheme, plus any subpackage path. At least host/owner/repo (3 slash-separated segments); the first segment must contain a dot. No segment may end in '.git', compared case-insensitively \u2014 the suffix belongs to a clone URL, not to an identity. The id is case-insensitive throughout and is lowercased before being stored or compared, because it becomes part of a FAT32 filename in PKG/packages/. Capped at 241 characters so that the derived `~<commit>.list` name stays within the FAT32 limit. See docs/Manifest.md#package-id.",
       "pattern": "^(?![\\s\\S]*[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029])(?!.*\\.[Gg][Ii][Tt](/|$))[a-zA-Z0-9][a-zA-Z0-9_.-]*\\.[a-zA-Z0-9_.-]+(/[a-zA-Z0-9][a-zA-Z0-9_.-]*){2,}$",
-      "maxLength": 249,
+      "maxLength": 241,
       "examples": [
         "github.com/ExpressLRS/Lua-Scripts",
         "github.com/offer-shmuely/lua-scripts/log-viewer"

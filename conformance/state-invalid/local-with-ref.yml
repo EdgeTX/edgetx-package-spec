@@ -1,15 +1,14 @@
 # expect: 'main' is not of type 'null'
 # INVALID: a local package does not keep a git branch or tag name in state.
-edgetx_format_version: "1.0"
-packages:
-  - id: github.com/acme/local-with-ref
-    version: null
-    reason: explicit
-    requires: []
-    source:
-      repo: github.com/acme/local-with-ref
-      channel: local
-      ref: main
-      commit: null
-      path: /home/dev/local-with-ref
-      manifest_path: "edgetx.yml"
+edgetx_format_version: "1.1"
+id: github.com/acme/local-with-ref
+version: null
+reason: explicit
+requires: []
+source:
+  repo: github.com/acme/local-with-ref
+  channel: local
+  ref: main
+  commit: null
+  path: /home/dev/local-with-ref
+  manifest_path: "edgetx.yml"

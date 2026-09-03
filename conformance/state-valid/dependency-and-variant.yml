@@ -1,29 +1,18 @@
-# An explicit package with a persisted variant, plus the package pulled in to
-# satisfy its requires. The dependency snapshot is what makes orphan cleanup
-# computable without refetching manifests.
-edgetx_format_version: "1.0"
-packages:
-  - id: github.com/acme/telemetry-suite
-    version: "1.4.0"
-    variant: "edgetx.color.yml"
-    reason: explicit
-    installed_at: "2026-08-23T12:40:00Z"
-    source:
-      repo: github.com/acme/telemetry-suite
-      channel: tag
-      ref: "v1.4.0"
-      commit: "9f1c2ab0d4e7a3b6c9f2e5a8d1b4c7e0a3f6b9c2"
-      manifest_path: "edgetx.yml"
-    requires:
-      - id: github.com/someone/elrs-libs
-        version: "^2.0.0"
+# An explicit package with a persisted variant and a dependency snapshot. The
+# snapshot is what makes orphan cleanup computable without refetching manifests.
+edgetx_format_version: "1.1"
+id: github.com/acme/telemetry-suite
+version: "1.4.0"
+variant: "edgetx.color.yml"
+reason: explicit
+installed_at: "2026-08-23T12:40:00Z"
+source:
+  repo: github.com/acme/telemetry-suite
+  channel: tag
+  ref: "v1.4.0"
+  commit: "9f1c2ab0d4e7a3b6c9f2e5a8d1b4c7e0a3f6b9c2"
+  manifest_path: "edgetx.yml"
+requires:
   - id: github.com/someone/elrs-libs
-    version: "2.1.0"
-    reason: dependency
-    source:
-      repo: github.com/someone/elrs-libs
-      channel: tag
-      ref: "v2.1.0"
-      commit: "a4d81f0c9e2b7a6f3d5c8e1b0a9f4c7d2e6b8a15"
-      manifest_path: "edgetx.yml"
-    requires: []
+    version: "^2.0.0"
+    commit: "a4d81f0c9e2b7a6f3d5c8e1b0a9f4c7d2e6b8a15"

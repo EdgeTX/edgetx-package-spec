@@ -1,16 +1,15 @@
 # expect: 'C:/repo\\nchild' does not match
 # INVALID: `source.path` is copied from the host environment into state, so it
 # must not carry control characters.
-edgetx_format_version: "1.0"
-packages:
-  - id: github.com/acme/local-control-char
-    version: null
-    reason: explicit
-    requires: []
-    source:
-      repo: github.com/acme/local-control-char
-      channel: local
-      ref: null
-      commit: null
-      path: "C:/repo\nchild"
-      manifest_path: "edgetx.yml"
+edgetx_format_version: "1.1"
+id: github.com/acme/local-control-char
+version: null
+reason: explicit
+requires: []
+source:
+  repo: github.com/acme/local-control-char
+  channel: local
+  ref: null
+  commit: null
+  path: "C:/repo\nchild"
+  manifest_path: "edgetx.yml"

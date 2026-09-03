@@ -10,14 +10,15 @@ which is normative too. Terminology follows
 ## Contents
 
 - [Reserved namespace](#reserved-namespace)
-- [`installed.yml`](#installedyml)
+- [`PKG/packages/<package-key>.yml`](#pkgpackagespackage-keyyml)
   - [Required and optional fields](#required-and-optional-fields)
+  - [Package keys and filenames](#package-keys-and-filenames)
   - [`source`](#source)
   - [`variant`](#variant)
   - [Dev content is not recorded](#dev-content-is-not-recorded)
   - [Dependency snapshot](#dependency-snapshot)
   - [`edgetx_format_version`](#edgetx_format_version)
-- [`PKG/files/<package-id>.list`](#pkgfilespackage-idlist)
+- [`PKG/packages/<package-key>.list`](#pkgpackagespackage-keylist)
   - [Ownership](#ownership)
   - [Bytecode companions](#bytecode-companions)
     - [The derived-bytecode exception](#the-derived-bytecode-exception)
@@ -38,16 +39,17 @@ All package manager state lives in a single top-level directory on the SD card:
 
 ```text
 PKG/
-├── installed.yml              # one entry per installed package
-├── files/
-│   └── <package-id>.list      # files installed by that package
+├── packages/
+│   ├── github.com%offer-shmuely%lua-scripts%log-viewer~9f1c2ab0.yml
+│   └── github.com%offer-shmuely%lua-scripts%log-viewer~9f1c2ab0.list
 └── .operation                 # present only while an operation is running
 ```
 
 `PKG/` is **reserved** for the package manager. Tooling MUST reject any content
 destination beginning with `PKG/`, **compared case-insensitively**, and MUST NOT
 store package content there. FAT32 does not distinguish `PKG` from `pkg`, so a
-case-sensitive check would let `dest: pkg/installed.yml` reach the state file.
+case-sensitive check would let `dest: pkg/packages/hijack.yml` reach the state
+directory.
 
 `PKG/` sits at the SD card root alongside the other purpose-owned directories
 (`SCRIPTS/`, `WIDGETS/`, `THEMES/`, `SOUNDS/`, `IMAGES/`, `MODELS/`, `RADIO/`,
@@ -60,48 +62,74 @@ what is on the card; if the files should be re-adopted, reinstall with an
 explicit `overwrite` policy. Under the required `fail` default, a blind
 reinstall stops at the first collision and reports it.
 
-## `installed.yml`
+## `PKG/packages/<package-key>.yml`
 
-One entry per installed package.
+One file per installed package.
 
 ```yaml
-edgetx_format_version: "1.0"
-packages:
-  - id: github.com/offer-shmuely/lua-scripts/log-viewer
-    name: Log Viewer
-    version: "1.2.0"
-    variant: "edgetx.color.yml"
-    reason: explicit
-    installed_at: "2026-08-23T12:40:00Z"
-    source:
-      repo: github.com/offer-shmuely/lua-scripts
-      channel: tag
-      ref: "v1.2.0"
-      commit: "9f1c2ab0d4e7a3b6c9f2e5a8d1b4c7e0a3f6b9c2"
-      origin: null
-      path: null
-      manifest_path: "log-viewer/edgetx.yml"
-    requires:
-      - id: github.com/someone/elrs-libs
-        version: "^2.0.0"
+edgetx_format_version: "1.1"
+id: github.com/offer-shmuely/lua-scripts/log-viewer
+name: Log Viewer
+version: "1.2.0"
+variant: "edgetx.color.yml"
+reason: explicit
+installed_at: "2026-08-23T12:40:00Z"
+source:
+  repo: github.com/offer-shmuely/lua-scripts
+  channel: tag
+  ref: "v1.2.0"
+  commit: "9f1c2ab0d4e7a3b6c9f2e5a8d1b4c7e0a3f6b9c2"
+  origin: null
+  path: null
+  manifest_path: "log-viewer/edgetx.yml"
+requires:
+  - id: github.com/someone/elrs-libs
+    version: "^2.0.0"
+    commit: "a4d81f0c9e2b7a6f3d5c8e1b0a9f4c7d2e6b8a15"
 ```
 
 ### Required and optional fields
 
-Tooling MUST write every field marked required, and MUST accept an entry in
+Tooling MUST write every field marked required, and MUST accept a package-state file in
 which any optional field is absent or `null`. **An absent field and an explicit
 `null` are equivalent.**
 
 | Field | Required | Description |
 |---|---|---|
-| `id` | **yes** | The package's canonical id, from its manifest. Primary key: at most one entry per id. |
+| `id` | **yes** | The package's canonical id, from its manifest. Primary key: `(id, commit)`, with `commit` taken from `source.commit` when present. |
 | `version` | **yes** | The `package.version` recorded at install, or `null` when the manifest declared none. Compared against a newly resolved manifest to detect updates. |
 | `reason` | **yes** | `explicit` when the user asked for this package; `dependency` when it was installed to satisfy a `requires` entry. Drives orphan cleanup. |
 | `source` | **yes** | Where the package came from — see below. |
 | `variant` | no | The selected variant, or `null`. See [variant](#variant). |
 | `name` | no | Display name copied from the manifest. Presentation only; tooling MUST NOT key on it. |
 | `installed_at` | no | RFC 3339 timestamp with the `Z` UTC designator. Offset forms such as `+00:00` MUST NOT be used, so the value sorts and compares textually. |
-| `requires` | **yes** | Snapshot of the manifest's `requires` list, `[]` when the manifest declares none — see [Dependency snapshot](#dependency-snapshot). |
+| `requires` | **yes** | Snapshot of the manifest's `requires` list, `[]` when the manifest declares none. Each entry records the requested dependency id and range, and MAY also record the resolved dependency commit — see [Dependency snapshot](#dependency-snapshot). |
+
+### Package keys and filenames
+
+`<package-key>` is the lowercased `id` with each `/` replaced by `%`, followed
+by `~`, followed by:
+
+- the first 8 lowercase hex characters of `source.commit`, when `commit` is
+  present; or
+- the literal `local`, when `channel` is `local`.
+
+Examples:
+
+- `github.com/offer-shmuely/lua-scripts/log-viewer` at commit
+  `9f1c2ab0d4e7a3b6c9f2e5a8d1b4c7e0a3f6b9c2` becomes
+  `github.com%offer-shmuely%lua-scripts%log-viewer~9f1c2ab0`
+- `github.com/acme/work-in-progress` from a host directory becomes
+  `github.com%acme%work-in-progress~local`
+
+The mapping from `id` to the prefix is the same reversible FAT32-safe mapping
+used before for file lists: `%` cannot appear in an id segment, so replacing `/`
+with `%` is unambiguous. The `~<commit>` suffix separates multiple installed
+versions of one package without relying on case distinctions FAT32 does not
+preserve.
+
+Because the longest sibling filename is `.list`, `id` is capped at **241**
+characters: `241 + 1 + 8 + 5 = 255`, exactly FAT32's per-name limit.
 
 ### `source`
 
@@ -109,7 +137,7 @@ which any optional field is absent or `null`. **An absent field and an explicit
 |---|---|---|
 | `channel` | **yes** | `tag`, `branch`, `commit` or `local`. How the version was resolved. |
 | `repo` | **yes** | The repository the `id` designates — the `id` **minus any subpackage path**. For `github.com/owner/repo/log-viewer` this is `github.com/owner/repo`, since that is what gets cloned. It MUST equal the `id` or be a prefix of it ending at a `/`. That is a necessary condition and not a sufficient one: how many segments a repository has is not fixed, because hosts nest differently — a GitLab subgroup makes `gitlab.com/group/sub/project` one repository — so a prefix that stops in the wrong place cannot be detected here and is caught by the fetch instead. |
-| `commit` | **yes** except `local` | The full resolved commit object id in lowercase hex: 40 characters for SHA-1, 64 for a SHA-256 repository. Abbreviated ids MUST NOT be recorded. |
+| `commit` | **yes** except `local` | The full resolved commit object id in lowercase hex: 40 characters for SHA-1, 64 for a SHA-256 repository. Abbreviated ids MUST NOT be recorded. Its first 8 characters key the state and list filenames. |
 | `ref` | no | The tag or branch name resolution chose — a dependency resolves to a *tag*, not merely a version, and this is where that choice is recorded. `null` for `commit` and `local`. This value is read off a removable card and handed to a fetch, so it is constrained like a path: no control characters, no leading `-` that a command line would read as an option, and only characters a git refname may contain. |
 | `origin` | no | Set when the package was fetched from somewhere other than its declared `id` — a fork. `null` otherwise. When present, update MUST re-resolve from `origin`, not from `repo`: the user chose the fork, and silently migrating them back upstream would install different code than they asked for. |
 | `path` | no | Absolute path on the **host** filesystem, for `channel: local`. Update re-reads the package from here; when the directory is gone, tooling reports that rather than treating the package as up to date. For a local install the symlink anchor is this directory, since there is no checkout. This is the one path in state that is not an SD card path, so the [path rules](./Manifest.md#path-rules) do not apply to it — but it MUST carry no control characters. POSIX absolute paths and Windows drive-absolute paths such as `C:/repo` and `C:\repo` are valid. `null` otherwise. |
@@ -144,6 +172,14 @@ implementation does: tooling that can fetch resolves `requires`, and tooling tha
 cannot still has to know what a package asked for in order to refuse it and name
 what is missing. See [Manifest.md](./Manifest.md#requires--other-packages).
 
+Each snapshot entry records the dependency `id` and requested `version` range.
+When resolution chose one installed version among several packages sharing that
+`id`, the snapshot entry SHOULD also record the resolved dependency `commit`.
+That field is what lets orphan cleanup and remove-time reachability follow the
+same installed dependency later without re-solving history from the network.
+When only one installed version of that `id` exists, `commit` MAY be omitted for
+backward compatibility with older state files.
+
 Without the snapshot neither rule is computable offline: deciding whether a
 `reason: dependency` package is still needed means knowing what every installed
 package requires, and manifests are not kept on the card. State exists to answer
@@ -153,9 +189,9 @@ and a compatibility verdict is not.
 
 ### `edgetx_format_version`
 
-`installed.yml` carries the same `edgetx_format_version` as a manifest, with the
-same numbering — one number covers both formats because they are released
-together. The rules differ, because state is written as well as read:
+Every package-state file carries the same `edgetx_format_version` as a manifest,
+with the same numbering — one number covers both formats because they are
+released together. The rules differ, because state is written as well as read:
 
 - Tooling MUST refuse to **read** state whose MAJOR is greater than its own, and
   say that newer tooling is required. Listing packages out of a format you do not
@@ -167,16 +203,19 @@ together. The rules differ, because state is written as well as read:
   tolerate a higher MINOR by ignoring fields it does not recognise.
 - Absence means `"1.0"`, and MUST NOT be warned about.
 
-## `PKG/files/<package-id>.list`
+## `PKG/packages/<package-key>.list`
 
 One file per package, listing every file that package installed.
 
-The package id becomes the filename with each `/` replaced by `%`, for example
-`github.com%offer-shmuely%lua-scripts%log-viewer.list`. `%` is not legal in an
-id segment, so the mapping is unambiguous and reversible. Package ids are
-capped so that the resulting name stays within the FAT32 filename limit.
+The list file is the state file's sibling with the same `<package-key>` base,
+for example:
 
-One SD-card-relative path per line, `/`-separated, LF or CRLF terminated:
+```text
+PKG/packages/github.com%offer-shmuely%lua-scripts%log-viewer~9f1c2ab0.list
+```
+
+Inside that `PKG/packages/<package-key>.list` file, each line is one
+SD-card-relative path, `/`-separated, LF or CRLF terminated:
 
 ```text
 SCRIPTS/TOOLS/LogViewer/main.lua
@@ -196,8 +235,8 @@ SCRIPTS/LIBS/Common/init.lua
   on. Deleting a path read blindly from a removable card is how a state file
   becomes a weapon.
 
-A per-package file avoids re-reading every package's inventory for every
-operation, and makes removal a single file delete.
+A sibling list file avoids re-reading every package's inventory for every
+operation, and makes removal a single file delete beside the package-state file.
 
 Fixtures for this format live in
 [`conformance/file-lists/`](../conformance/file-lists/); it has no JSON Schema,
@@ -326,13 +365,13 @@ reported, because per-file ownership compares names and these two differ. The
 
 ## Resource limits
 
-`PKG/installed.yml` is read on every operation and comes off a removable card,
-so it gets the same treatment as a manifest — see
+`PKG/packages/*.yml` is read on every operation and comes off a removable card,
+so each package-state file gets the same treatment as a manifest — see
 [Manifest.md](./Manifest.md#edgetx_format_version) for the reasoning.
 
-State MUST NOT exceed 512 KiB, MUST NOT record more than 512 packages, and MUST
-NOT record more than 64 `requires` entries for any one package. A single file
-list MUST NOT exceed 1 MiB or 8192 lines — it is the larger artifact, one content
+State MUST NOT record more than 512 packages in `PKG/packages/`, and MUST NOT
+record more than 64 `requires` entries for any one package. A single file list
+MUST NOT exceed 1 MiB or 8192 lines — it is the larger artifact, one content
 item may name a directory of any size, and every operation reads every list to
 answer ownership.
 
@@ -360,9 +399,9 @@ that can.
 
 Requirements:
 
-1. **State writes are replace-in-place.** Write `installed.yml` and each file
-   list to a temporary name in the same directory, then replace the target.
-   Tooling SHOULD request a flush where the platform offers one.
+1. **State writes are replace-in-place.** Write each package-state file and each
+   file list to a temporary name in the same directory, then replace the
+   target. Tooling SHOULD request a flush where the platform offers one.
 
 2. **A state file that fails to parse MUST NOT be silently discarded.** Report
    it and stop; do not overwrite it with an empty document. Losing state
@@ -389,8 +428,8 @@ Requirements:
 
    The marker is YAML, and it is validated against `#/$defs/operationMarker` in
    [`schema/edgetx-state.v1.json`](../schema/edgetx-state.v1.json) — **not**
-   against that schema's root, which describes `installed.yml`. One schema file
-   carries both formats.
+   against that schema's root, which describes one package-state file. One
+   schema file carries both formats.
 
    `package_id` names the package the user asked for. One marker covers the whole
    request: an install that also pulls in dependencies writes one marker for the
@@ -449,8 +488,8 @@ Requirements:
 
    Recovery is therefore explicit:
 
-   1. read and report `PKG/.operation`, `PKG/installed.yml`, and the package's
-      file list when present;
+   1. read and report `PKG/.operation`, the affected `PKG/packages/*.yml`
+      entries, and the package's file list when present;
    2. inspect the card for files that were copied or left behind;
    3. run reconciliation, or manually compare state against the card, to decide
       whether files should be re-adopted, overwritten, or deleted;
@@ -459,12 +498,14 @@ Requirements:
       leftover files have been cleaned up.
 
 5. **Reconciliation.** Tooling SHOULD provide a command that compares
-   `installed.yml` and the file lists against what is on the card, and reports:
-   files recorded but missing, files present but unowned, packages whose state
-   no longer matches the firmware, and `reason: dependency` packages that
-   nothing requires. This replaces automatic rollback: it is inspectable, it
-   needs no shadow copies of user data, and it also repairs damage the package
-   manager did not cause.
+   `PKG/packages/*.yml` and the file lists against what is on the card, and
+   reports: files recorded but missing, files present but unowned, packages
+   whose state no longer matches the firmware, and `reason: dependency`
+   packages that nothing requires. This replaces automatic rollback: it is
+   inspectable, it needs no shadow copies of user data, and it also repairs
+   damage the package manager did not cause. Automatic orphan cleanup after
+   install, update and remove uses the same reachability rule described in
+   [Orphan removal and dependency reasons](#orphan-removal-and-dependency-reasons).
 
 Deliberately **not** required: per-file backups before overwrite, per-file
 checksums, lock files with process-liveness detection, and automatic
@@ -485,12 +526,27 @@ How a dependency gets recorded is covered by
 *for*.
 
 A package installed only to satisfy another package's `requires` entry is
-recorded with `reason: dependency`. It is a full package with its own entry and
-its own file list — dependencies are not merged into their requirer.
+recorded with `reason: dependency`. It is a full package with its own state file
+and its own file list — dependencies are not merged into their requirer.
 
-- On remove, tooling MAY remove a `reason: dependency` package once no remaining
-  `reason: explicit` package transitively requires it, computed from the
-  [dependency snapshots](#dependency-snapshot).
+- Tooling SHOULD scan every package-state file after install, update and remove
+  to find `reason: dependency` packages no remaining `reason: explicit` package
+  transitively requires, computed from the [dependency
+  snapshots](#dependency-snapshot).
+- Reachability starts from every `reason: explicit` package-state file. Follow
+  each `requires` entry by `(id, commit)` when the snapshot recorded `commit`.
+  When it did not, and exactly one installed package with that `id` exists,
+  tooling MAY follow that one by `id` alone for backward compatibility.
+- If a snapshot omits `commit` and multiple installed versions of that `id`
+  exist, tooling MUST re-resolve before orphan cleanup or conservatively keep
+  all matching versions. It MUST NOT guess which installed commit had satisfied
+  the dependency.
+- Different requiring packages MAY therefore keep different commits of one
+  dependency alive.
+- A `reason: dependency` package that is not reachable from any explicit root is
+  an orphan. Tooling SHOULD remove it automatically by deleting its state file,
+  sibling file list and owned files, then repeating the scan until no new
+  orphans appear.
 - Tooling MUST NOT remove a `reason: explicit` package as an orphan.
 - Installing a package that is already present as `reason: dependency`, this
   time explicitly, promotes it to `reason: explicit`. This applies to the
@@ -507,14 +563,19 @@ package. See [Manifest.md](./Manifest.md#dependencies).
 
 ## Package id as a key
 
-- `id` is the primary key. Two entries MUST NOT share an id.
+- `(id, commit)` is the primary key. Two installed packages MAY share an `id`
+  only when their resolved commits differ, and each such version gets its own
+  package-state file and sibling file list.
 - Comparison follows the id rules in
   [Manifest.md](./Manifest.md#package-id): an `id` is case-insensitive throughout
   and is lowercased before it is stored or compared.
-- That rule matters twice as much here as in a manifest. File-list names are
-  derived from the id, and FAT32 filenames are case-insensitive, so two ids
-  differing only in case would collide on disk — one `.list` file for two state
-  entries.
+- `commit` is lowercase hex when present, and the filename uses its first 8
+  characters. FAT32 is case-insensitive, so the lowercasing rule matters twice:
+  it prevents the id-derived prefix colliding on disk, and the commit suffix
+  distinguishes installed versions without relying on case alone.
+- For `channel: local`, which records no git commit, tooling uses the literal
+  `local` filename suffix and MUST NOT keep more than one local install of the
+  same `id`.
 
 ## Validation summary
 
@@ -536,9 +597,9 @@ Where each rule in this document is checked. Same three-part split as
 | `source.path` is absolute and carries no control characters | `relative-local-path.yml`, `control-char-local-path.yml` |
 | `variant` and `source.manifest_path` satisfy the [path rules](./Manifest.md#path-rules) | `variant-path-escape.yml` |
 | `version` is strict semver | `version-leading-zero-prerelease.yml` |
-| `requires[].version` matches the manifest's range grammar | `requires-leading-zero-prerelease.yml` |
+| `requires[].version` matches the manifest's range grammar, and `requires[].commit` is a full lowercase commit id when present | `requires-leading-zero-prerelease.yml` |
 | `source.ref` is a legal git refname with no traversal | `ref-traversal.yml`, `ref-leading-dot-component.yml`, `ref-lock-component.yml`, `ref-trailing-dotdot.yml` |
-| At most 512 packages and 64 `requires` entries per package | — |
+| At most 64 `requires` entries per package-state file | — |
 | Timestamps use the `Z` UTC designator | `timestamp-with-offset.yml` |
 | A marker declares `operation`, `package_id` and `started_at` | `marker-missing-operation.yml` |
 | A marker's `operation` is one of the three values | `marker-bad-operation.yml` |
@@ -548,7 +609,7 @@ Where each rule in this document is checked. Same three-part split as
 
 | Rule | Why the schema cannot | Fixture |
 |---|---|---|
-| No two entries share an `id` | `uniqueItems` compares whole objects, not one property | `duplicate-package-id.yml` |
+| No two package-state files share the same `(id, commit)` key | Needs every state file and filename read together | `duplicate-package-key-a.yml`, `duplicate-package-key-b.yml` |
 | `source.repo` is the `id` or a prefix of it at a `/` boundary — necessary, not sufficient | Repository depth varies by host, so no pattern can say where the repo ends, and none can compare two values in one document | `repo-not-prefix-of-id.yml` |
 | No two file lists claim the same destination | Needs every list read together | — |
 | Timestamp components are in range | Needs date arithmetic, not a pattern | — |
@@ -571,8 +632,8 @@ driving a real implementation would cover them — see
 | A written or deleted `.lua` takes its untracked `.luac` sibling with it, subject to the overwrite policy | [Bytecode companions](#bytecode-companions) |
 | A destination collides with an owned `.lua`/`.luac` counterpart | [Bytecode companions](#bytecode-companions) |
 | The sibling policy is applied before the operation marker is written | [Bytecode companions](#bytecode-companions) |
-| State over 512 KiB, or with more than 512 packages, is refused | [Resource limits](#resource-limits) |
-| Blank lines in a file list are ignored; an invalid line is reported, not acted on | [PKG/files/…](#pkgfilespackage-idlist) |
+| More than 512 package-state files is refused | [Resource limits](#resource-limits) |
+| Blank lines in a file list are ignored; an invalid line is reported, not acted on | [PKG/packages/…](#pkgpackagespackage-keylist) |
 | State writes are replace-in-place | [Durability](#durability) |
 | An unparseable state file is reported, never silently discarded | [Durability](#durability) |
 | An operation marker is written before any change and removed after the final state write | [Durability](#durability) |
@@ -589,7 +650,7 @@ driving a real implementation would cover them — see
 
 ## Migration
 
-Two earlier layouts exist and neither is this one:
+Three earlier layouts exist and none is this one:
 
 - Pre-release drafts of this specification described `EDGETX/PKG/state/` with a
   single global `files.yml`. No tooling shipped against those drafts, so no
@@ -600,7 +661,18 @@ Two earlier layouts exist and neither is this one:
   absent and the old location is present, read the old state, write it to
   `PKG/`, and delete the old files. Fields the old layout did not record —
   notably `reason` and `requires` — are set to `explicit` and empty.
+- State format `1.0` stored all installed packages in `PKG/installed.yml`, with
+  per-package file lists in `PKG/files/`. Tooling that reads `1.1` SHOULD, when
+  `PKG/packages/` is absent and `PKG/installed.yml` is present, split the old
+  file into one `PKG/packages/<package-key>.yml` per package and move each old
+  list to the matching sibling `PKG/packages/<package-key>.list`. A remote
+  package's `<package-key>` uses the first 8 characters of its recorded
+  `source.commit`; a local package uses the `local` suffix.
 
-Tooling that never supported either layout MAY ignore both, in which case the
+If both `PKG/packages/` and `PKG/installed.yml` are present, tooling SHOULD
+prefer `PKG/packages/` and report the legacy files as leftovers rather than
+merging them silently.
+
+Tooling that never supported any legacy layout MAY ignore it, in which case the
 user reinstalls their packages. Deleting stale state is safe: it forgets
 packages, it does not delete their files.

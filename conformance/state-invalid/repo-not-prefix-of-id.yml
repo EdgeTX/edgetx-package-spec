@@ -11,15 +11,14 @@
 # and would also produce a clone URL that does not exist. Deciding that needs to
 # know where the repository ends, which is exactly what varies by host. The rule
 # catches the cheap mistake; the fetch catches the rest.
-edgetx_format_version: "1.0"
-packages:
-  - id: github.com/acme/monorepo/log-viewer
-    version: "1.0.0"
-    reason: explicit
-    requires: []
-    source:
-      repo: github.com/acme/other-repo
-      channel: tag
-      ref: "v1.0.0"
-      commit: "3f9a1c0e4b7d2a5f8c1e6b0d9a4f7c2e5b8d1a03"
-      manifest_path: "log-viewer/edgetx.yml"
+edgetx_format_version: "1.1"
+id: github.com/acme/monorepo/log-viewer
+version: "1.0.0"
+reason: explicit
+requires: []
+source:
+  repo: github.com/acme/other-repo
+  channel: tag
+  ref: "v1.0.0"
+  commit: "3f9a1c0e4b7d2a5f8c1e6b0d9a4f7c2e5b8d1a03"
+  manifest_path: "log-viewer/edgetx.yml"

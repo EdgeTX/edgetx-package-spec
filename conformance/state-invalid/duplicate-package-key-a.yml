@@ -1,17 +1,14 @@
-# A single explicitly-installed package, resolved from a semver tag.
+# SEMANTIC-ONLY: this file and duplicate-package-key-b.yml share one `(id,
+# commit)` key. Each file is valid alone; the duplicate exists only across the
+# pair of package-state files in this fixture set.
 edgetx_format_version: "1.1"
 id: github.com/acme/simple-tool
-name: Simple Tool
 version: "1.0.0"
-variant: null
 reason: explicit
-installed_at: "2026-08-23T12:00:00Z"
+requires: []
 source:
   repo: github.com/acme/simple-tool
   channel: tag
   ref: "v1.0.0"
   commit: "3f9a1c0e4b7d2a5f8c1e6b0d9a4f7c2e5b8d1a03"
-  origin: null
-  path: null
   manifest_path: "edgetx.yml"
-requires: []

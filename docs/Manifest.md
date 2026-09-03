@@ -176,6 +176,7 @@ unknown key MUST NOT make a manifest invalid.
 | Version | Change |
 |---|---|
 | `1.0` | First version of the format. |
+| `1.1` | Added multi-version dependency resolution and per-package state files under `PKG/packages/`. |
 
 ## Manifest format
 
@@ -254,7 +255,7 @@ widgets:
 **Length limits.** `name` and each `authors[].name` are at most 128 characters;
 `description` 1024; `license` 128; each `keywords` entry 64; `authors[].email`
 254; `urls[].name` 64; `urls[].url` 2048; a content item's `name` and each
-`id` 249; any path 255. These are counted in Unicode code
+`id` 241; any path 255. These are counted in Unicode code
 points, which for a path is **not** the same as FAT32's 255 UTF-16 units — a path
 of astral characters can satisfy this rule and still exceed what the card
 accepts. Keep installed paths ASCII.
@@ -290,15 +291,16 @@ lives in a subdirectory.
   case-sensitive checkout finds neither if the segments are folded before the
   lookup. The stored id stays lowercase either way.
 
-  This is not merely a convenience. The `id` becomes a filename in
-  [`PKG/files/`](./State.md#pkgfilespackage-idlist) and FAT32 is
+  This is not merely a convenience. The `id` becomes part of a filename in
+  [`PKG/packages/`](./State.md#pkgpackagespackage-keyyml) and FAT32 is
   case-insensitive, so two ids differing only in case cannot have separate
-  inventory files on the card however this specification defines equality —
-  treating them as distinct packages would give two state entries one file list.
+  state or inventory files on the card however this specification defines
+  equality — treating them as distinct packages would give two package-state
+  files one prefix.
   The major forges treat owner and repository names case-insensitively too.
-- An `id` MUST NOT exceed 249 characters, so that the state file-list name
-  derived from it stays within the FAT32 filename limit — see
-  [State.md](./State.md#pkgfilespackage-idlist).
+- An `id` MUST NOT exceed 241 characters, so that the derived
+  `PKG/packages/<package-key>.list` name stays within the FAT32 filename limit — see
+  [State.md](./State.md#package-keys-and-filenames).
 
 A host with a non-default port cannot currently be expressed: `:` is excluded
 from paths and ids because FAT32 forbids it in a name. Self-hosted instances
@@ -375,7 +377,7 @@ here because this is where a reader looks:
 - The package **cannot satisfy any dependency range except `*`** — see
   [Resolving a requirement to a version](#resolving-a-requirement-to-a-version).
 - State still records the field, as `null`. `version` is a **required key** in
-  `PKG/installed.yml` even when its value is absent — see
+  each `PKG/packages/<package-key>.yml` file even when its value is absent — see
   [State.md](./State.md#required-and-optional-fields).
 
 ## Content sections
@@ -883,9 +885,19 @@ SHOULD say that it did.
   while `a@1.0.0` requires nothing, then `a@1.0.0` is a perfectly good answer and
   refusing the whole install would be wrong. Only when no combination avoids the
   loop is there a cycle to report.
-- When two packages require incompatible ranges of the same dependency, tooling
-  MUST refuse and name both requirers with their ranges. "A needs ^1.0, B needs
-  ^2.0" is actionable; "unsatisfiable constraints" is not.
+- When two packages require different ranges of the same dependency, tooling
+  MUST resolve each requirement against the versions actually available. If one
+  version satisfies both, one install is enough. If the ranges do not overlap
+  but each has a satisfying release, tooling MAY install both versions side by
+  side rather than refuse.
+- When two resolved versions of one dependency coexist, tooling MUST keep their
+  installed files disjoint. In particular, libraries from those packages install
+  to version-scoped paths under `SCRIPTS/LIBS/pkg/`, for example
+  `SCRIPTS/LIBS/pkg/github.com.acme.lib-json.1.2.3/`.
+- Tooling MUST refuse only when a requirement has no satisfying version, or when
+  the resolved versions would still collide on installed destinations, and it
+  MUST name both requirers with their ranges. "A needs ^1.0, B needs ^2.0" is
+  actionable; "unsatisfiable constraints" is not.
 - A graph can be **both** cyclic and unsatisfiable, and the two rules above then
   both apply. When that happens tooling MUST report the unsatisfiable ranges, and
   MUST name a cycle only when no range conflict can be named. A conflict tells the
@@ -895,12 +907,13 @@ SHOULD say that it did.
   requirements happened to be listed in. Reporting both is permitted; reporting
   only the cycle when a conflict exists is not.
 - Tooling MUST install a dependency before the package requiring it.
-- A dependency already on the card counts only if its installed version
-  **satisfies** the range. When it does not, tooling MUST refuse, naming the
-  installed version, the range and the package that wants it. It MUST NOT install
-  the requirer against a version that does not satisfy it, and MUST NOT silently
-  upgrade the installed package — something else on the card may depend on the
-  version that is there. Updating it is the user's decision to make.
+- A dependency already on the card counts for a requirement only if its
+  installed version **satisfies** that range. When it does not, tooling MUST
+  resolve another version for that requirement or refuse, naming the installed
+  version, the range and the package that wants it. It MUST NOT install the
+  requirer against a version that does not satisfy it, and MUST NOT silently
+  replace another installed version — something else on the card may depend on
+  the version that is there.
 - A package installed only to satisfy a requirement is recorded with
   `reason: dependency`, along with a snapshot of its own `requires` — see
   [State.md](./State.md#dependency-snapshot). Tooling MAY remove such a package
