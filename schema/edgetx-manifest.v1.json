@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/EdgeTX/edgetx-package-spec/main/schema/edgetx-manifest.v1.json",
   "title": "EdgeTX Package Manifest",
-  "description": "JSON Schema for the EdgeTX edgetx.yml package manifest format (edgetx_format_version 1.x). Every manifest has the same shape: base manifests and variant manifests are both complete, self-contained manifests that declare their own package.id and package.description. See docs/Manifest.md#conformance-and-terminology.",
+  "description": "JSON Schema for the EdgeTX edgetx.yml package manifest format (edgetx_format_version 1.x). Variant manifests still declare their own package.id and package.description, and selected variants may also use explicit overlays from the base manifest (`base_capabilities`, `capabilities_tighten`, and inherited content sections). See docs/Manifest.md#conformance-and-terminology.",
   "type": "object",
   "required": [
     "package"
@@ -16,6 +16,10 @@
     },
     "package": {
       "$ref": "#/$defs/packageBlock"
+    },
+    "base_capabilities": {
+      "$ref": "#/$defs/capabilities",
+      "description": "Install-time hardware requirements inherited by every selected variant. Same shape as package.capabilities; not used for variant selection."
     },
     "requires": {
       "type": "array",
@@ -303,7 +307,7 @@
     },
     "variant": {
       "type": "object",
-      "description": "Variant entry in a base manifest's variants list. The filter here \u2014 capabilities and firmware bounds \u2014 is used for selection only; it is not merged into the variant manifest.",
+      "description": "Variant entry in a base manifest's variants list. The selection filter here is still only capabilities and firmware bounds; capabilities_tighten and any content sections are overlay fields merged only after this entry is selected.",
       "required": [
         "path"
       ],
@@ -320,6 +324,10 @@
           "$ref": "#/$defs/capabilities",
           "description": "Capability filter used to auto-select this variant."
         },
+        "capabilities_tighten": {
+          "$ref": "#/$defs/capabilities",
+          "description": "Install-time capability fields merged with the base manifest's base_capabilities after this variant is selected. Not used for selection."
+        },
         "min_edgetx_version": {
           "$ref": "#/$defs/packageBlock/properties/min_edgetx_version",
           "description": "Selection filter: this variant is a candidate only when the running firmware is at least this version. Same grammar as the package-level field. Filter only \u2014 it does not constrain installation."
@@ -327,9 +335,39 @@
         "max_edgetx_version": {
           "$ref": "#/$defs/packageBlock/properties/max_edgetx_version",
           "description": "Selection filter: this variant is a candidate only when the running firmware is at most this version. `x` allowed in the patch position, as at package level. Filter only \u2014 it does not constrain installation."
+        },
+        "libraries": {
+          "$ref": "#/$defs/contentSection"
+        },
+        "tools": {
+          "$ref": "#/$defs/contentSection"
+        },
+        "widgets": {
+          "$ref": "#/$defs/contentSection"
+        },
+        "telemetry": {
+          "$ref": "#/$defs/contentSection"
+        },
+        "functions": {
+          "$ref": "#/$defs/contentSection"
+        },
+        "mixes": {
+          "$ref": "#/$defs/contentSection"
+        },
+        "sounds": {
+          "$ref": "#/$defs/contentSection"
+        },
+        "images": {
+          "$ref": "#/$defs/contentSection"
+        },
+        "themes": {
+          "$ref": "#/$defs/contentSection"
+        },
+        "files": {
+          "$ref": "#/$defs/contentSection"
         }
       },
-      "$comment": "additionalProperties is true so that an older implementation can LOAD a newer manifest rather than reject it. It is NOT permission to add filter fields in a MINOR bump: every field here feeds selection and specificity, and specificity chooses which build installs, so ignoring one installs a different variant. Adding a field to a variant entry is MAJOR. See docs/Manifest.md#edgetx_format_version."
+      "$comment": "additionalProperties is true so that an older implementation can LOAD a newer manifest rather than reject it. It is NOT permission to add new selection fields in a MINOR bump: capabilities, min_edgetx_version and max_edgetx_version drive selection and specificity, so ignoring one installs a different variant. Overlay fields such as capabilities_tighten and content sections do not participate in selection. See docs/Manifest.md#edgetx_format_version."
     },
     "contentSection": {
       "type": "array",

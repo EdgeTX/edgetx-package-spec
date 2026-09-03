@@ -90,8 +90,10 @@ scheme, plus any subpackage path. There is no separate registry of names.
 
 **Variants are one package, many builds.** A package with black-and-white and
 color LCD builds declares each as a variant with a hardware filter. Tooling
-picks the best match for the connected radio at install time. Every variant
-manifest is a complete, self-contained manifest sharing the base's `id`.
+picks the best match for the connected radio at install time. A selected
+variant still shares the base's `id`, and tooling now merges explicit base
+overlays (`base_capabilities` and inherited content sections) with the selected
+variant's own content.
 
 **Subpackages are separate packages.** Several independent packages can live
 in one repository, each with its own manifest and its own `id`, installed and

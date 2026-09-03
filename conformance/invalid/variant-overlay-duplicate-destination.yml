@@ -1,0 +1,17 @@
+# SEMANTIC-ONLY: base content and the selected variant entry's inline overlay
+# resolve to the same destination. Destination collisions are checked after the
+# base and selected variant are merged.
+edgetx_format_version: "1.0"
+package:
+  id: github.com/acme/overlay-dest-collision
+  description: Package whose variant overlay duplicates a base destination
+  variants:
+    - path: variants/color.yml
+      tools:
+        - name: ColorTool
+          path: SCRIPTS/TOOLS/Variant
+          dest: SCRIPTS/TOOLS/Shared
+tools:
+  - name: BaseTool
+    path: SCRIPTS/TOOLS/Base
+    dest: SCRIPTS/TOOLS/Shared

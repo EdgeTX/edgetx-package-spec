@@ -193,8 +193,9 @@ package:
           type: colorlcd
 ```
 
-Each variant is a **complete manifest** that repeats the same `id` and lists
-only its own content:
+Each variant still repeats the same `id` and declares its own `description`.
+When selected, its content is merged with any base content sections and inline
+content declared on the selected `variants[]` entry:
 
 ```yaml
 # edgetx.color.yml
@@ -232,9 +233,10 @@ package:
       min_edgetx_version: "2.12.0"
 ```
 
-Put `binary: true` in each **variant** manifest, not the base — variant manifests
-are self-contained and inherit nothing, so a flag on a base that declares no
-content does nothing and your `.luac` files are silently skipped.
+Put `binary: true` in the manifest file that declares the `.luac` content. Base
+content sections and inline content on a selected `variants[]` entry use the
+base manifest's `package.binary`; content declared in the selected variant
+manifest uses that variant manifest's own `package.binary`.
 
 The bounds on a variant *entry* only **choose** a build. To say your package will
 not run on a firmware version at all, set `min_edgetx_version` on `package` in
