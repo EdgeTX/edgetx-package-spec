@@ -103,7 +103,7 @@ future tooling and firmware adapt their handling, or refuse a manifest they
 cannot process correctly, rather than guessing.
 
 ```yaml
-edgetx_format_version: "1.0"
+edgetx_format_version: "1.1"
 ```
 
 It belongs at the top level, not inside `package:`, because it describes the
@@ -180,7 +180,7 @@ unknown key MUST NOT make a manifest invalid.
 ## Manifest format
 
 ```yaml
-edgetx_format_version: "1.0"
+edgetx_format_version: "1.1"
 
 package:
   id: github.com/ExpressLRS/Lua-Scripts                       # required

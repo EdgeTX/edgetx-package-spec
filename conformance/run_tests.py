@@ -332,7 +332,13 @@ def check_variant_overlay_semantics() -> tuple[int, int]:
             print(f"  FAIL  {path.relative_to(REPO_ROOT)}  expected exactly 1 variant entry")
             failures += 1
             continue
-        merged = content_items(doc) + content_items(variants[0])
+        variant_path = path.parent / variants[0].get("path", "")
+        if not variant_path.exists():
+            print(f"  FAIL  {path.relative_to(REPO_ROOT)}  referenced variant manifest is missing")
+            failures += 1
+            continue
+        variant_doc = yaml.safe_load(variant_path.read_text()) or {}
+        merged = content_items(doc) + content_items(variants[0]) + content_items(variant_doc)
         found = duplicate_name(merged) if mode == "name" else duplicate_destination(merged)
         if found is None:
             print(f"  FAIL  {path.relative_to(REPO_ROOT)}  merged base+variant overlay did not collide")

@@ -2,7 +2,7 @@
 # inherited by every selected variant, `capabilities_tighten` narrows it after
 # selection, and base content sections are merged with inline variant-entry
 # content and the selected variant manifest's own content.
-edgetx_format_version: "1.0"
+edgetx_format_version: "1.1"
 base_capabilities:
   display:
     type: colorlcd

@@ -1,15 +1,15 @@
-# SEMANTIC-ONLY: base content and the selected variant entry's inline overlay
-# share a content-item name. Name uniqueness is checked across the merged
-# base+selected-variant content set, not only within one section.
-edgetx_format_version: "1.0"
+# SEMANTIC-ONLY: base content and the selected variant's merged content share a
+# content-item name. Name uniqueness is checked across the merged base, selected
+# entry, and selected variant-manifest content set, not only within one section.
+edgetx_format_version: "1.1"
 package:
   id: github.com/acme/overlay-name-collision
   description: Package whose variant overlay duplicates a base item name
   variants:
-    - path: variants/color.yml
-      libraries:
-        - name: Common
-          path: SCRIPTS/LIBS/CommonColor
+    - path: invalid-variants/duplicate-name.color.yml
+      tools:
+        - name: ColorLoader
+          path: SCRIPTS/TOOLS/ColorLoader
 libraries:
   - name: Common
     path: SCRIPTS/LIBS/CommonBase

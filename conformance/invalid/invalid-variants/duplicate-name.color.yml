@@ -1,0 +1,7 @@
+edgetx_format_version: "1.1"
+package:
+  id: github.com/acme/overlay-name-collision
+  description: Selected variant manifest with a duplicate base content name
+libraries:
+  - name: Common
+    path: SCRIPTS/LIBS/CommonVariant
