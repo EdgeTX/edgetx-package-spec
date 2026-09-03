@@ -1,4 +1,5 @@
-# Valid host-absolute path forms for local installs on both major platforms.
+# Valid host-absolute path forms for local installs on both major platforms,
+# including Windows drive paths with either separator.
 edgetx_format_version: "1.0"
 packages:
   - id: github.com/acme/local-root
@@ -22,4 +23,15 @@ packages:
       ref: null
       commit: null
       path: C:/repo
+      manifest_path: "edgetx.yml"
+  - id: github.com/acme/local-windows-backslash
+    version: null
+    reason: explicit
+    requires: []
+    source:
+      repo: github.com/acme/local-windows-backslash
+      channel: local
+      ref: null
+      commit: null
+      path: C:\repo\pkg
       manifest_path: "edgetx.yml"

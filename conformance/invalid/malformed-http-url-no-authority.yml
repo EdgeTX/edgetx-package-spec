@@ -1,0 +1,10 @@
+# expect: 'https:///path' does not match
+# INVALID: `urls[].url` must be an absolute HTTP(S) URL with an authority; three
+# slashes starts a path with no host.
+edgetx_format_version: "1.0"
+package:
+  id: github.com/acme/url-no-authority
+  description: Package whose project URL omits the HTTP authority
+  urls:
+    - name: Homepage
+      url: https:///path

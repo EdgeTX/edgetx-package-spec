@@ -52,13 +52,13 @@ case-sensitive check would let `dest: pkg/installed.yml` reach the state file.
 `PKG/` sits at the SD card root alongside the other purpose-owned directories
 (`SCRIPTS/`, `WIDGETS/`, `THEMES/`, `SOUNDS/`, `IMAGES/`, `MODELS/`, `RADIO/`,
 `FIRMWARE/`). Keeping it separate from `RADIO/`, which holds firmware settings,
-means package state has exactly one owner — and gives users a simple recovery
-action: **deleting `PKG/` makes the package manager forget everything while
-leaving installed files in place.** A subsequent install re-adopts them — but
-those files are untracked once the state is gone, so the install needs an
-explicit `overwrite` policy. Under the required `fail` default it stops and
-names the first file instead, which is correct behaviour and not what a user
-following this advice expects.
+means package state has exactly one owner — but deleting it is **destructive
+tracking loss**, not a routine recovery step. **Deleting `PKG/` makes the
+package manager forget every installed package while leaving their files in
+place.** Those files are then untracked. To recover, first inspect or reconcile
+what is on the card; if the files should be re-adopted, reinstall with an
+explicit `overwrite` policy. Under the required `fail` default, a blind
+reinstall stops at the first collision and reports it.
 
 ## `installed.yml`
 
@@ -112,7 +112,7 @@ which any optional field is absent or `null`. **An absent field and an explicit
 | `commit` | **yes** except `local` | The full resolved commit object id in lowercase hex: 40 characters for SHA-1, 64 for a SHA-256 repository. Abbreviated ids MUST NOT be recorded. |
 | `ref` | no | The tag or branch name resolution chose — a dependency resolves to a *tag*, not merely a version, and this is where that choice is recorded. `null` for `commit` and `local`. This value is read off a removable card and handed to a fetch, so it is constrained like a path: no control characters, no leading `-` that a command line would read as an option, and only characters a git refname may contain. |
 | `origin` | no | Set when the package was fetched from somewhere other than its declared `id` — a fork. `null` otherwise. When present, update MUST re-resolve from `origin`, not from `repo`: the user chose the fork, and silently migrating them back upstream would install different code than they asked for. |
-| `path` | no | Absolute path on the **host** filesystem, for `channel: local`. Update re-reads the package from here; when the directory is gone, tooling reports that rather than treating the package as up to date. For a local install the symlink anchor is this directory, since there is no checkout. This is the one path in state that is not an SD card path, so the [path rules](./Manifest.md#path-rules) do not apply to it — but it MUST carry no control characters. `null` otherwise. |
+| `path` | no | Absolute path on the **host** filesystem, for `channel: local`. Update re-reads the package from here; when the directory is gone, tooling reports that rather than treating the package as up to date. For a local install the symlink anchor is this directory, since there is no checkout. This is the one path in state that is not an SD card path, so the [path rules](./Manifest.md#path-rules) do not apply to it — but it MUST carry no control characters. POSIX absolute paths and Windows drive-absolute paths such as `C:/repo` and `C:\repo` are valid. `null` otherwise. |
 | `manifest_path` | **yes** | Repo-relative path of the manifest that was loaded. When a variant was selected this is the **base** manifest, so update re-runs variant selection from the same starting point. |
 
 Tooling MUST record `source.commit` whenever it is known. Without it a
@@ -440,8 +440,23 @@ Requirements:
 4. **On startup, a present `PKG/.operation` means the last operation did not
    finish.** Tooling MUST report which package and which operation were
    interrupted, and MUST NOT silently continue as if state were consistent. It
-   SHOULD offer to reconcile. Re-running the same install or remove is the
-   normal fix, and is safe because both are idempotent.
+   SHOULD offer to reconcile. Re-running the same install or remove can be part
+   of recovery, but it is not automatically safe or sufficient: an interrupted
+   install or update can leave copied files behind without matching ownership in
+   state, so the required `fail` default rejects a blind rerun at the first
+   collision; an interrupted remove can delete tracking before every file is
+   gone, so there may be nothing left to rerun unattended.
+
+   Recovery is therefore explicit:
+
+   1. read and report `PKG/.operation`, `PKG/installed.yml`, and the package's
+      file list when present;
+   2. inspect the card for files that were copied or left behind;
+   3. run reconciliation, or manually compare state against the card, to decide
+      whether files should be re-adopted, overwritten, or deleted;
+   4. rerun install/update only with an explicit overwrite decision when stray
+      files remain, and rerun remove only after tracking has been restored or
+      leftover files have been cleaned up.
 
 5. **Reconciliation.** Tooling SHOULD provide a command that compares
    `installed.yml` and the file lists against what is on the card, and reports:
@@ -516,11 +531,13 @@ Where each rule in this document is checked. Same three-part split as
 | `reason` is `explicit` or `dependency` | `bad-reason.yml` |
 | `source.commit` is present unless `channel` is `local` | `missing-commit.yml` |
 | `source.commit` is 40 or 64 lowercase hex characters | `abbreviated-commit.yml` |
-| `source.path` is present when `channel` is `local` | `local-without-path.yml` |
-| `source.path` is absolute and carries no control characters | `relative-local-path.yml` |
+| `source.path` is present when `channel` is `local`, and `commit`/`ref` are null there | `local-without-path.yml`, `local-with-commit.yml`, `local-with-ref.yml` |
+| Remote sources do not record a host-local `source.path`, and `channel: commit` records no `ref` | `remote-with-local-path.yml`, `commit-with-ref.yml` |
+| `source.path` is absolute and carries no control characters | `relative-local-path.yml`, `control-char-local-path.yml`, `local-absolute-paths.yml` |
 | `variant` and `source.manifest_path` satisfy the [path rules](./Manifest.md#path-rules) | `variant-path-escape.yml` |
-| `requires[].version` matches the manifest's range grammar | — |
-| `source.ref` is a legal git refname with no traversal | `ref-traversal.yml` |
+| `version` is strict semver | `version-leading-zero-prerelease.yml` |
+| `requires[].version` matches the manifest's range grammar | `requires-leading-zero-prerelease.yml` |
+| `source.ref` is a legal git refname with no traversal | `source-channel-combinations.yml`, `ref-traversal.yml`, `ref-leading-dot-component.yml`, `ref-lock-component.yml`, `ref-trailing-dotdot.yml` |
 | At most 512 packages and 64 `requires` entries per package | — |
 | Timestamps use the `Z` UTC designator | `timestamp-with-offset.yml` |
 | A marker declares `operation`, `package_id` and `started_at` | `marker-missing-operation.yml` |

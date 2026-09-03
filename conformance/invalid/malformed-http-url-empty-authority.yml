@@ -1,0 +1,10 @@
+# expect: 'https://\?' does not match
+# INVALID: `urls[].url` must be an absolute HTTP(S) URL with an authority; a
+# query immediately after the scheme leaves the authority empty.
+edgetx_format_version: "1.0"
+package:
+  id: github.com/acme/url-empty-authority
+  description: Package whose project URL leaves the HTTP authority empty
+  urls:
+    - name: Homepage
+      url: https://?

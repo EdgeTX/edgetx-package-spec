@@ -1286,7 +1286,7 @@ these hold without any further work:
 | `package`, `package.id` and `package.description` are present | `missing-id.yml`, `missing-description.yml` |
 | `id` shape, length, and no `.git` on any segment | `invalid-id-format.yml`, `id-with-git-suffix.yml`, `id-with-git-mid-segment.yml` |
 | `edgetx_format_version` is `MAJOR.MINOR` with no leading zeros | `invalid-format-version.yml`, `format-version-leading-zero.yml` |
-| `version` is semver | `invalid-version-format.yml` |
+| `version` is strict semver | `invalid-version-format.yml`, `version-leading-zero-prerelease.yml` |
 | `min_edgetx_version` carries no wildcard | `wildcard-in-min-version.yml` |
 | A variant entry's `min_edgetx_version` carries no wildcard | `wildcard-in-variant-min-version.yml` |
 | Every [path rule](#path-rules), `reserved-device-name.yml` | `absolute-path.yml`, `backslash-path.yml`, `dotdot-in-dest.yml`, `dot-segment-in-path.yml`, `control-char-in-path.yml`, `trailing-space-in-dest.yml`, `reserved-device-name.yml` |
@@ -1296,13 +1296,13 @@ these hold without any further work:
 | `dest` is not `.` | `dest-is-dot.yml` |
 | `variants[].path` ends in `.yml`/`.yaml` and stays inside the manifest directory | `invalid-variant-path.yml`, `dotdot-in-variant-path.yml` |
 | `requires[].id` is a canonical package id | `requires-bad-id.yml` |
-| `requires[].version` matches a supported comparator shape | `requires-bad-version-range.yml` |
+| `requires[].version` matches a supported comparator shape | `requires-bad-version-range.yml`, `requires-leading-zero-prerelease.yml` |
 | `requires[].version` carries no build metadata | `requires-with-build-metadata.yml` |
 | At most 512 content items in any one section | `too-many-content-items.yml` |
 | At most 64 `requires` entries | `too-many-requires.yml` |
 | A two-comparator range is a lower bound then an upper bound | `caret-in-two-comparator-range.yml` |
 | `authors[].email` is a valid address | `malformed-email.yml` |
-| `urls[].url` is an absolute URL with a scheme | `malformed-url.yml` |
+| `urls[].url` is an absolute HTTP(S) URL with an authority | `malformed-url.yml`, `malformed-http-url-no-authority.yml`, `malformed-http-url-empty-authority.yml` |
 
 **A note on the two `format` keywords.** `urls[].url` carries both a `pattern`
 and `format: uri`; the pattern is what actually holds, because `format` is an
