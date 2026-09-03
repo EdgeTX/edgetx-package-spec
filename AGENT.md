@@ -23,7 +23,7 @@ docs/GettingStarted.md           guidance   tutorial for package authors
 README.md                        guidance   overview and routing
 CONTRIBUTING.md                  process    how to change the specification
 AGENT.md                         process    this file
-CHANGELOG.md                     process    every change, including editorial ones
+CHANGELOG.md                     process    release history; editorial changes excluded
 conformance/                     tests      fixtures + run_tests.py
 ```
 
