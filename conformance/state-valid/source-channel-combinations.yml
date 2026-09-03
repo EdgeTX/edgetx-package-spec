@@ -1,0 +1,37 @@
+# Valid source combinations across channels: a semver-style tag with '+', a raw
+# commit install with no ref, and a local install with a host path.
+edgetx_format_version: "1.0"
+packages:
+  - id: github.com/acme/tag-plus
+    version: "1.2.3"
+    reason: explicit
+    requires: []
+    source:
+      repo: github.com/acme/tag-plus
+      channel: tag
+      ref: v1.2.3+build.7
+      commit: "3f9a1c0e4b7d2a5f8c1e6b0d9a4f7c2e5b8d1a03"
+      path: null
+      manifest_path: "edgetx.yml"
+  - id: github.com/acme/pinned-commit
+    version: "1.2.3"
+    reason: dependency
+    requires: []
+    source:
+      repo: github.com/acme/pinned-commit
+      channel: commit
+      ref: null
+      commit: "b1e4a7c0d3f6295e8b1c4a7d0f3e6b9c2a5d8f1e"
+      path: null
+      manifest_path: "edgetx.yml"
+  - id: github.com/acme/local-copy
+    version: null
+    reason: explicit
+    requires: []
+    source:
+      repo: github.com/acme/local-copy
+      channel: local
+      ref: null
+      commit: null
+      path: /home/dev/local-copy
+      manifest_path: "edgetx.yml"

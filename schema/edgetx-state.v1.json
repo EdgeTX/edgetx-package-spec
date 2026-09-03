@@ -33,8 +33,27 @@
     },
     "semver": {
       "type": "string",
-      "pattern": "^(?![\\s\\S]*[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029])(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?(\\+[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?$",
+      "pattern": "^(?![\\s\\S]*[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029])(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-((?:0|[1-9][0-9]*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)(?:\\.(?:0|[1-9][0-9]*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\\+([0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*))?$",
       "description": "Semantic version. See docs/Manifest.md#package-version."
+    },
+    "versionRequirement": {
+      "type": "string",
+      "description": "Semver range the dependency's package.version must satisfy. Absent or '*' means any version. One comparator ('1.2.3', '=1.2.3', '^1.2.0', '~1.2.0', '>=1.2.0', '<2.0.0'), or two space-separated comparators forming a bounded range ('>=1.2.0 <2.0.0'). See docs/Manifest.md#version-ranges.",
+      "pattern": "^(\\*|([\\^~]|>=|<=|>|<|=)?(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-((?:0|[1-9][0-9]*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)(?:\\.(?:0|[1-9][0-9]*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*))*))?|(>=|>)?(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-((?:0|[1-9][0-9]*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)(?:\\.(?:0|[1-9][0-9]*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*))*))? (<=|<)(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-((?:0|[1-9][0-9]*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)(?:\\.(?:0|[1-9][0-9]*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*))*))?)$"
+    },
+    "gitRefName": {
+      "type": "string",
+      "description": "Git tag or branch name with git refname restrictions and the extra safety rule that it must not begin with '-'.",
+      "minLength": 1,
+      "pattern": "^(?![\\s\\S]*[\\x00-\\x20\\x7f-\\x9f\\u2028\\u2029])(?!-)(?!/)(?!.*//)(?!.*\\.\\.)(?!.*@\\{)(?!.*(?:^|/)\\.)(?!.*(?:^|/)[^/]*\\.lock(?:/|$))(?!.*[/.]$)(?!@$)[^~^:?*\\[\\\\]+$",
+      "maxLength": 255
+    },
+    "localAbsolutePath": {
+      "type": "string",
+      "description": "Absolute path on the host filesystem. Accepts POSIX absolute paths including '/', and Windows drive-absolute paths such as 'C:/repo' or 'C:\\repo'.",
+      "pattern": "^(?![\\s\\S]*[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029])(?:/(?:.*)?|[A-Za-z]:(?:[\\\\/].*)?)$",
+      "minLength": 1,
+      "maxLength": 4096
     },
     "timestamp": {
       "type": [
@@ -60,12 +79,18 @@
         },
         "version": {
           "description": "package.version at install, or null when the manifest declared none.",
-          "oneOf": [
+          "type": [
+            "string",
+            "null"
+          ],
+          "allOf": [
             {
-              "$ref": "#/$defs/semver"
-            },
-            {
-              "type": "null"
+              "if": {
+                "type": "string"
+              },
+              "then": {
+                "$ref": "#/$defs/semver"
+              }
             }
           ]
         },
@@ -144,9 +169,16 @@
             "null"
           ],
           "description": "The tag or branch name installed from. Constrained because this value is read off a removable card and handed to a fetch: no control characters, no leading '-' that a command line would read as an option, and only characters a git refname may contain. Null for channel commit and local. See docs/State.md#source.",
-          "minLength": 1,
-          "pattern": "^(?![\\s\\S]*[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029])(?!.*\\.\\.)(?!.*(^|/)\\.(/|$))(?!/)(?!.*/$)(?!.*\\.lock$)(?!.*//)(?!-)[A-Za-z0-9._/-]+$",
-          "maxLength": 255
+          "allOf": [
+            {
+              "if": {
+                "type": "string"
+              },
+              "then": {
+                "$ref": "#/$defs/gitRefName"
+              }
+            }
+          ]
         },
         "commit": {
           "type": [
@@ -172,10 +204,17 @@
             "string",
             "null"
           ],
-          "description": "Absolute path on the host filesystem, for channel: local. This is the one path in state that is not an SD card path, so the SD path rules do not apply \u2014 but it must still carry no control characters. Accepts POSIX absolute paths including `/`, and Windows drive-absolute paths such as `C:/repo`. See docs/State.md#source.",
-          "pattern": "^(?![\\s\\S]*[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029])(?:/.*|[A-Za-z]:/.*)$",
-          "minLength": 1,
-          "maxLength": 4096
+          "description": "Absolute path on the host filesystem, for channel: local. This is the one path in state that is not an SD card path, so the SD path rules do not apply \u2014 but it must still carry no control characters. Accepts POSIX absolute paths including `/`, and Windows drive-absolute paths such as `C:/repo` or `C:\\repo`. See docs/State.md#source.",
+          "allOf": [
+            {
+              "if": {
+                "type": "string"
+              },
+              "then": {
+                "$ref": "#/$defs/localAbsolutePath"
+              }
+            }
+          ]
         },
         "manifest_path": {
           "$ref": "#/$defs/repoRelativePath",
@@ -184,34 +223,7 @@
       },
       "allOf": [
         {
-          "$comment": "commit is required unless the package was installed from a local directory.",
-          "if": {
-            "properties": {
-              "channel": {
-                "enum": [
-                  "tag",
-                  "branch",
-                  "commit"
-                ]
-              }
-            },
-            "required": [
-              "channel"
-            ]
-          },
-          "then": {
-            "required": [
-              "commit"
-            ],
-            "properties": {
-              "commit": {
-                "type": "string"
-              }
-            }
-          }
-        },
-        {
-          "$comment": "A local install records where it came from on the host.",
+          "$comment": "A local install records where it came from on the host, and must not claim a git ref or commit.",
           "if": {
             "properties": {
               "channel": {
@@ -228,7 +240,71 @@
             ],
             "properties": {
               "path": {
+                "$ref": "#/$defs/localAbsolutePath"
+              },
+              "ref": {
+                "type": "null"
+              },
+              "commit": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "$comment": "A commit install records the resolved commit only, not a branch/tag ref or local host path.",
+          "if": {
+            "properties": {
+              "channel": {
+                "const": "commit"
+              }
+            },
+            "required": [
+              "channel"
+            ]
+          },
+          "then": {
+            "required": [
+              "commit"
+            ],
+            "properties": {
+              "commit": {
                 "type": "string"
+              },
+              "ref": {
+                "type": "null"
+              },
+              "path": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "$comment": "A tag or branch install records the chosen ref and resolved commit, and must not claim a local host path.",
+          "if": {
+            "properties": {
+              "channel": {
+                "enum": [
+                  "tag",
+                  "branch"
+                ]
+              }
+            },
+            "required": [
+              "channel"
+            ]
+          },
+          "then": {
+            "required": [
+              "commit"
+            ],
+            "properties": {
+              "commit": {
+                "type": "string"
+              },
+              "path": {
+                "type": "null"
               }
             }
           }
@@ -247,9 +323,7 @@
           "$ref": "#/$defs/packageId"
         },
         "version": {
-          "type": "string",
-          "description": "Semver range the dependency's package.version must satisfy. Absent or '*' means any version. One comparator ('1.2.3', '=1.2.3', '^1.2.0', '~1.2.0', '>=1.2.0', '<2.0.0'), or two space-separated comparators forming a bounded range ('>=1.2.0 <2.0.0'). See docs/Manifest.md#version-ranges.",
-          "pattern": "^(\\*|([\\^~]|>=|<=|>|<|=)?(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?|(>=|>)?(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)? (<=|<)(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?)$"
+          "$ref": "#/$defs/versionRequirement"
         }
       },
       "description": "One entry of the package's requires list, snapshotted at install. See docs/State.md#dependency-snapshot."

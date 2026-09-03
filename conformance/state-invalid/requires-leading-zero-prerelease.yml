@@ -1,0 +1,17 @@
+# expect: '\^1\.2\.3-04' does not match
+# INVALID: `requires[].version` in state snapshots the manifest's range grammar,
+# including semver's ban on leading zeroes in numeric prerelease identifiers.
+edgetx_format_version: "1.0"
+packages:
+  - id: github.com/acme/bad-state-range
+    version: "1.2.3"
+    reason: explicit
+    requires:
+      - id: github.com/someone/elrs-libs
+        version: "^1.2.3-04"
+    source:
+      repo: github.com/acme/bad-state-range
+      channel: tag
+      ref: v1.2.3
+      commit: "3f9a1c0e4b7d2a5f8c1e6b0d9a4f7c2e5b8d1a03"
+      manifest_path: "edgetx.yml"

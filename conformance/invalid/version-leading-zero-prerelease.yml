@@ -1,0 +1,8 @@
+# expect: '1\.2\.3-01' does not match
+# INVALID: `version` is strict semver, so a numeric prerelease identifier must not
+# carry a leading zero.
+edgetx_format_version: "1.0"
+package:
+  id: github.com/acme/bad-prerelease
+  version: "1.2.3-01"
+  description: Package whose prerelease numeric identifier has a leading zero
