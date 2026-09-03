@@ -56,6 +56,10 @@ SEMANTIC_ONLY = {
     # A variant manifest declaring an id that differs from its base. Valid as a
     # standalone manifest; invalid only in the context it is loaded from.
     "variant-id-mismatch.yml",
+    # Two package-state files sharing one `(id, commit)` key. Each file is valid
+    # alone; the duplicate exists only across the pair.
+    "duplicate-package-key-a.yml",
+    "duplicate-package-key-b.yml",
     # `source.repo` that is not a path prefix of `id`. Repository depth varies by
     # host, so no pattern can say where the repo ends and the subpackage begins;
     # comparing the two values can.
@@ -201,7 +205,10 @@ def state_family_schema(doc, state_schema: dict, name: str = "") -> dict:
     expected" for a different reason, leaving the marker's own contract
     untested — the exact failure this function's design was meant to prevent.
     """
-    if name.startswith("marker-") or ("operation" in (doc or {}) and "id" not in (doc or {})):
+    if name.startswith("marker-") or (
+            "operation" in (doc or {})
+            and not {"id", "reason", "source", "requires"} <= set((doc or {}).keys())
+    ):
         # Validate against the sub-schema alone: keep $defs so internal $refs
         # resolve, drop the document-level rules of the package-state file.
         return {"$schema": state_schema["$schema"],
@@ -219,7 +226,47 @@ def looks_like_marker(doc) -> bool:
     the package-state schema, where it fails for an unrelated reason and its own
     contract goes untested.
     """
-    return isinstance(doc, dict) and "operation" in doc and "packages" not in doc
+    return (isinstance(doc, dict)
+            and "operation" in doc
+            and not {"id", "reason", "source", "requires"} <= set(doc.keys()))
+
+
+def check_state_multifile_semantics() -> tuple[int, int]:
+    """Exercise load-time-only rules that exist only across multiple state files."""
+    directory = REPO_ROOT / "conformance" / "state-invalid"
+    files = sorted(directory.glob("duplicate-package-key-*.yml"))
+    if not files:
+        return (0, 0)
+    if len(files) < 2:
+        print(f"  FAIL  duplicate-package-key: expected at least 2 fixtures, found {len(files)}")
+        return (0, 1)
+    docs = [yaml.safe_load(path.read_text()) for path in files]
+
+    def expected_state_file(doc: dict) -> str:
+        pkg_id = doc.get("id", "").lower().replace("/", "%")
+        suffix = ((doc.get("source") or {}).get("commit") or "local")
+        if suffix != "local":
+            suffix = suffix[:8]
+        return f"PKG/packages/{pkg_id}~{suffix}.yml"
+
+    keys = [(doc.get("id", "").lower(),
+             ((doc.get("source") or {}).get("commit") or "local"))
+            for doc in docs]
+    if len(set(keys)) != 1:
+        print("  FAIL  duplicate-package-key: fixtures do not share one (id, commit) key")
+        return (0, 1)
+    declared_paths = [doc.get("state_file") for doc in docs]
+    expected_paths = [expected_state_file(doc) for doc in docs]
+    if declared_paths != expected_paths:
+        print("  FAIL  duplicate-package-key: fixture state_file path does not match "
+              "the derived package key")
+        return (0, 1)
+    if len(set(declared_paths)) != 1:
+        print("  FAIL  duplicate-package-key: fixtures do not target one on-disk "
+              "package-state path")
+        return (0, 1)
+    print(f"  PASS  duplicate-package-key  ({len(files)} files share one (id, commit) key)")
+    return (1, 0)
 
 
 def doc_examples(top_level: set[str]) -> list[tuple[str, object, str]]:
@@ -402,6 +449,8 @@ def check_file_list_examples(manifest_schema: dict) -> tuple[int, int]:
             lines = [l for l in block.split("\n")
                      if l.strip() and not l.lstrip().startswith("#")]
             if not lines:
+                continue
+            if not re.match(r"^[A-Za-z0-9_.-]+/", lines[0]):
                 continue
             # A block showing the path of the .list file itself is not a file
             # list example; file lists contain installed SD-card paths, never
@@ -1338,6 +1387,11 @@ def run() -> bool:
 
     print("=== File lists ===")
     p, f = check_file_lists(manifest_schema)
+    passed, failed = passed + p, failed + f
+    print()
+
+    print("=== State multi-file semantics ===")
+    p, f = check_state_multifile_semantics()
     passed, failed = passed + p, failed + f
     print()
 

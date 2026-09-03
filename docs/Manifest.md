@@ -255,7 +255,7 @@ widgets:
 **Length limits.** `name` and each `authors[].name` are at most 128 characters;
 `description` 1024; `license` 128; each `keywords` entry 64; `authors[].email`
 254; `urls[].name` 64; `urls[].url` 2048; a content item's `name` and each
-`id` 249; any path 255. These are counted in Unicode code
+`id` 241; any path 255. These are counted in Unicode code
 points, which for a path is **not** the same as FAT32's 255 UTF-16 units — a path
 of astral characters can satisfy this rule and still exceed what the card
 accepts. Keep installed paths ASCII.
@@ -298,8 +298,8 @@ lives in a subdirectory.
   equality — treating them as distinct packages would give two package-state
   files one prefix.
   The major forges treat owner and repository names case-insensitively too.
-- An `id` MUST NOT exceed 249 characters, so that the state file-list name
-  derived from it stays within the FAT32 filename limit — see
+- An `id` MUST NOT exceed 241 characters, so that the derived
+  `PKG/packages/<package-key>.list` name stays within the FAT32 filename limit — see
   [State.md](./State.md#package-keys-and-filenames).
 
 A host with a non-default port cannot currently be expressed: `:` is excluded

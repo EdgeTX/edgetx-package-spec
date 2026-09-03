@@ -127,6 +127,9 @@ with `%` is unambiguous. The `~<commit>` suffix separates multiple installed
 versions of one package without relying on case distinctions FAT32 does not
 preserve.
 
+Because the longest sibling filename is `.list`, `id` is capped at **241**
+characters: `241 + 1 + 8 + 5 = 255`, exactly FAT32's per-name limit.
+
 ### `source`
 
 | Field | Required | Description |
@@ -589,7 +592,7 @@ Where each rule in this document is checked. Same three-part split as
 
 | Rule | Why the schema cannot | Fixture |
 |---|---|---|
-| No two package-state files share the same `(id, commit)` key | Needs every state file and filename read together | — |
+| No two package-state files share the same `(id, commit)` key | Needs every state file and filename read together | `duplicate-package-key-a.yml`, `duplicate-package-key-b.yml` |
 | `source.repo` is the `id` or a prefix of it at a `/` boundary — necessary, not sufficient | Repository depth varies by host, so no pattern can say where the repo ends, and none can compare two values in one document | `repo-not-prefix-of-id.yml` |
 | No two file lists claim the same destination | Needs every list read together | — |
 | Timestamp components are in range | Needs date arithmetic, not a pattern | — |

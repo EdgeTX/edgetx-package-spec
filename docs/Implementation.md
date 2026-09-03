@@ -1303,6 +1303,7 @@ id: github.com/acme/new-widget
 version: "2.0.0"
 reason: explicit
 requires: []
+installed_at: "2026-08-23T12:42:00Z"
 source:
   repo: github.com/acme/new-widget          # from package.id
   channel: branch

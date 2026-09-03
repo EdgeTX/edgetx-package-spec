@@ -22,7 +22,7 @@
     "packageId": {
       "type": "string",
       "pattern": "^(?![\\s\\S]*[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029])(?!.*\\.[Gg][Ii][Tt](/|$))[a-zA-Z0-9][a-zA-Z0-9_.-]*\\.[a-zA-Z0-9_.-]+(/[a-zA-Z0-9][a-zA-Z0-9_.-]*){2,}$",
-      "maxLength": 249,
+      "maxLength": 241,
       "description": "Canonical package identifier, same form as a manifest's package.id. See docs/Manifest.md#package-id."
     },
     "semver": {
