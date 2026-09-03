@@ -172,8 +172,8 @@
             "string",
             "null"
           ],
-          "description": "Absolute path on the host filesystem, for channel: local. This is the one path in state that is not an SD card path, so the SD path rules do not apply \u2014 but it must still carry no control characters. See docs/State.md#source.",
-          "pattern": "^(?![\\s\\S]*[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029])/.+$",
+          "description": "Absolute path on the host filesystem, for channel: local. This is the one path in state that is not an SD card path, so the SD path rules do not apply \u2014 but it must still carry no control characters. Accepts POSIX absolute paths including `/`, and Windows drive-absolute paths such as `C:/repo`. See docs/State.md#source.",
+          "pattern": "^(?![\\s\\S]*[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029])(?:/.*|[A-Za-z]:/.*)$",
           "minLength": 1,
           "maxLength": 4096
         },

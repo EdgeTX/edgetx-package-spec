@@ -662,7 +662,7 @@ STATE_ONLY = {
         {"pattern": "^(?![\\s\\S]*[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029])([0-9a-f]{40}|[0-9a-f]{64})$"}),
         "/$defs/source/properties/path": (
         "an absolute host path; the only non-SD path",
-        {"pattern": "^(?![\\s\\S]*[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029])/.+$", "minLength": 1, "maxLength": 4096}),
+            {"pattern": "^(?![\\s\\S]*[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029])(?:/.*|[A-Za-z]:/.*)$", "minLength": 1, "maxLength": 4096}),
     "/$defs/operationMarker/properties/operation": (
         "the marker's own enum",
         {"enum": ["install", "update", "remove"]}),
