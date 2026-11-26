@@ -408,7 +408,7 @@ through `requires`.
 | `rgbled` | RGB LED scripts. LED strip only — see the note above. |
 | `sounds` | Sound packs. |
 | `images` | Image assets. |
-| `themes` | UI themes. Color LCD only — see the note below. |
+| `themes` | UI themes. Color LCD only — see the note above. |
 | `files` | Content with no EdgeTX-defined home. A more specific section MUST be preferred wherever one applies. |
 
 ### Content item fields
