@@ -45,7 +45,7 @@ The specification covers:
 
 - package identity, metadata and versioning
 - content sections: `libraries`, `tools`, `widgets`, `telemetry`, `functions`,
-  `mixes`, `sounds`, `images`, `themes`, `files`
+  `mixes`, `rgbled`, `sounds`, `images`, `themes`, `files`
 - source and destination path rules
 - dependencies on other packages (`requires`)
 - hardware capability requirements and firmware version constraints

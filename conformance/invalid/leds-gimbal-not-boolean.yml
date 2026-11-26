@@ -1,0 +1,10 @@
+# expect: 'rings' is not of type 'boolean'
+# INVALID: `capabilities.leds.gimbal` is a boolean. A string is rejected rather
+# than read as truthy, so `gimbal: "no"` cannot quietly mean the opposite.
+edgetx_format_version: "1.1"
+package:
+  id: github.com/acme/bad-gimbal-led-capability
+  description: Package whose gimbal LED requirement is not a boolean
+  capabilities:
+    leds:
+      gimbal: rings

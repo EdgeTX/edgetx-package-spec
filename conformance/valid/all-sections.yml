@@ -1,7 +1,7 @@
 # Every content section, including `images` and `files`.
 # `files` is the escape hatch for content with no EdgeTX-defined home; a more
 # specific section must be preferred wherever one applies.
-edgetx_format_version: "1.0"
+edgetx_format_version: "1.1"
 package:
   id: github.com/acme/kitchen-sink
   name: Kitchen Sink
@@ -32,6 +32,10 @@ functions:
 mixes:
   - name: MyMix
     path: SCRIPTS/MIXES/MyMix
+
+rgbled:
+  - name: MyLeds
+    path: SCRIPTS/RGBLED/MyLeds
 
 sounds:
   - name: sounds-en

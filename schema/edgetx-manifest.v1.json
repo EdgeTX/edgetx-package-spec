@@ -48,6 +48,9 @@
     "mixes": {
       "$ref": "#/$defs/contentSection"
     },
+    "rgbled": {
+      "$ref": "#/$defs/contentSection"
+    },
     "sounds": {
       "$ref": "#/$defs/contentSection"
     },
@@ -276,6 +279,13 @@
       "properties": {
         "display": {
           "$ref": "#/$defs/displayCapabilities"
+        },
+        "leds": {
+          "$ref": "#/$defs/ledCapabilities"
+        },
+        "imu": {
+          "type": "boolean",
+          "description": "true requires an inertial measurement unit (gyroscope and accelerometer); false requires a radio without one; omitted matches both."
         }
       },
       "$comment": "additionalProperties is true so that an older implementation can LOAD a newer manifest rather than reject it. It is NOT permission to add fields here in a MINOR bump: this object is used as a variant entry's selection filter, where every field feeds specificity and specificity chooses which build installs \u2014 so ignoring one installs a different variant. Adding a capability field is MAJOR. See docs/Manifest.md#edgetx_format_version."
@@ -304,6 +314,22 @@
         }
       },
       "$comment": "additionalProperties is true so that unknown keys are ignored rather than rejected. A MINOR format bump may add optional fields here, and older tooling must still accept the manifest. See docs/Manifest.md#edgetx_format_version."
+    },
+    "ledCapabilities": {
+      "type": "object",
+      "description": "LED hardware requirements. Every field is optional; an omitted field matches anything.",
+      "additionalProperties": true,
+      "properties": {
+        "strip": {
+          "type": "boolean",
+          "description": "true requires an addressable RGB LED strip; false requires a radio without one; omitted matches both."
+        },
+        "gimbal": {
+          "type": "boolean",
+          "description": "true requires addressable LEDs around the gimbals; false requires a radio without them; omitted matches both."
+        }
+      },
+      "$comment": "additionalProperties is true so that an older implementation can LOAD a newer manifest rather than reject it. It is NOT permission to add fields here in a MINOR bump: like displayCapabilities, this object sits inside a variant entry's selection filter. See docs/Manifest.md#edgetx_format_version."
     },
     "variant": {
       "type": "object",
@@ -352,6 +378,9 @@
           "$ref": "#/$defs/contentSection"
         },
         "mixes": {
+          "$ref": "#/$defs/contentSection"
+        },
+        "rgbled": {
           "$ref": "#/$defs/contentSection"
         },
         "sounds": {

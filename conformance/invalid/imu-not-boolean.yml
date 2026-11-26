@@ -1,0 +1,9 @@
+# expect: 'gyro' is not of type 'boolean'
+# INVALID: `capabilities.imu` is a boolean. A string is rejected rather than read
+# as truthy, so `imu: "no"` cannot quietly mean the opposite.
+edgetx_format_version: "1.1"
+package:
+  id: github.com/acme/bad-imu-capability
+  description: Package whose IMU requirement is not a boolean
+  capabilities:
+    imu: gyro
