@@ -175,7 +175,7 @@ unknown key MUST NOT make a manifest invalid.
 | Version | Change |
 |---|---|
 | `1.0` | First version of the format. |
-| `1.1` | Added multi-version dependency resolution, per-package state files under `PKG/packages/`, and explicit variant overlays via `base_capabilities`, `capabilities_tighten`, and merged content sections. |
+| `1.1` | Added multi-version dependency resolution, per-package state files under `PKG/packages/`, explicit variant overlays via `base_capabilities`, `capabilities_tighten`, and merged content sections, the `leds.strip`, `leds.gimbal` and `imu` capability fields, and the `rgbled` content section. |
 
 ## Manifest format
 
@@ -230,7 +230,7 @@ widgets:
 | `package` | **yes** | Package metadata — see [Package fields](#package-fields). |
 | `base_capabilities` | no | Install-time hardware requirements inherited by every selected variant. Same shape as `package.capabilities`. See [Variants](#variants). |
 | `requires` | no | Dependencies on **other packages**. See [requires](#requires--other-packages). |
-| content sections | no | `libraries`, `tools`, `widgets`, `telemetry`, `functions`, `mixes`, `sounds`, `images`, `themes`, `files`. See [Content sections](#content-sections). |
+| content sections | no | `libraries`, `tools`, `widgets`, `telemetry`, `functions`, `mixes`, `rgbled`, `sounds`, `images`, `themes`, `files`. See [Content sections](#content-sections). |
 
 ### Package fields
 
@@ -389,6 +389,10 @@ Themes only work on color LCD radios, so a package shipping them SHOULD declare
 [Radio capabilities](#radio-capabilities). Tooling can then refuse the install
 on a black-and-white radio instead of leaving dead files on the card.
 
+RGB LED scripts only do anything on radios with an addressable LED strip, so a
+package shipping `rgbled` content SHOULD declare `capabilities.leds.strip: true`
+for the same reason.
+
 A manifest that declares no content sections is valid. It installs no files, and
 is useful as a metapackage: a package whose only purpose is to pull in others
 through `requires`.
@@ -401,9 +405,10 @@ through `requires`.
 | `telemetry` | Telemetry scripts. |
 | `functions` | Special-function scripts. |
 | `mixes` | Mix scripts. |
+| `rgbled` | RGB LED scripts. LED strip only — see the note above. |
 | `sounds` | Sound packs. |
 | `images` | Image assets. |
-| `themes` | UI themes. Color LCD only — see the note below. |
+| `themes` | UI themes. Color LCD only — see the note above. |
 | `files` | Content with no EdgeTX-defined home. A more specific section MUST be preferred wherever one applies. |
 
 ### Content item fields
@@ -944,21 +949,35 @@ package:
       type: colorlcd          # "bw" or "colorlcd"
       resolution: 480x272     # optional, exact
       touch: true             # optional
+    leds:
+      strip: true             # optional
+      gimbal: true            # optional
+    imu: true                 # optional
 ```
 
-Every field inside `display` is optional; an omitted field matches anything.
-Matching is an AND over the declared fields:
+Every capability field is optional; an omitted field matches anything. Matching
+is an AND over the declared fields.
 
-- `touch: true` requires a touchscreen
-- `touch: false` requires a non-touchscreen device
-- `touch` omitted matches either
+| Field | Type | Meaning |
+|---|---|---|
+| `display.type` | `bw` or `colorlcd` | The display type. |
+| `display.resolution` | `<width>x<height>` | The exact display resolution. |
+| `display.touch` | boolean | `true` requires a touchscreen; `false` requires a non-touchscreen device. |
+| `leds.strip` | boolean | `true` requires an addressable RGB LED strip; `false` requires a radio without one. |
+| `leds.gimbal` | boolean | `true` requires addressable LEDs around the gimbals; `false` requires a radio without them. A radio with gimbal LEDs also has `leds.strip`, but not every radio with a strip has gimbal LEDs. |
+| `imu` | boolean | `true` requires an inertial measurement unit (gyroscope and accelerometer); `false` requires a radio without one. |
+
+The boolean fields all work the same way: omitted matches either. `leds` and
+`display` are containers; only their leaf fields are requirements, and only leaf
+fields count toward a variant filter's [specificity](#selection).
 
 Tooling determines the radio's capabilities and MUST refuse to install a package
 whose declared capabilities do not match, unless the user explicitly overrides.
 
 **When a capability cannot be determined, it MUST NOT be treated as a
 mismatch.** Tooling identifies the radio from the SD card, but mapping a board
-to its display geometry and touch support may require a hardware catalog that is
+to its display geometry, touch support, LEDs or IMU may require a hardware
+catalog that is
 unavailable offline, incomplete, or newer than the tooling. Treating an unknown
 value as "does not match" makes packages silently un-installable for reasons the
 user cannot see or fix.
@@ -1101,8 +1120,8 @@ Normative rules:
   the base manifest's `base_capabilities` only after a variant has already been
   chosen.
 - A variant entry MAY declare any content section (`libraries`, `tools`,
-  `widgets`, `telemetry`, `functions`, `mixes`, `sounds`, `images`, `themes`,
-  `files`). These do **not** affect selection or specificity; they are inline
+  `widgets`, `telemetry`, `functions`, `mixes`, `rgbled`, `sounds`, `images`,
+  `themes`, `files`). These do **not** affect selection or specificity; they are inline
   content overlays merged only for the selected entry.
 - `base_capabilities` has the same shape as `package.capabilities`. It is an
   install-time overlay only: tooling MUST NOT use it to choose between variants.
@@ -1370,6 +1389,7 @@ these hold without any further work:
 | `dest` is outside `PKG/`, case-insensitively | `dest-in-reserved-pkg.yml`, `dest-in-reserved-pkg-lowercase.yml` |
 | `path` is outside `PKG/` too, since it is the destination when `dest` is absent | `path-in-reserved-pkg.yml` |
 | `dest` is not `.` | `dest-is-dot.yml` |
+| `capabilities.leds.strip`, `capabilities.leds.gimbal` and `capabilities.imu` are booleans | `leds-strip-not-boolean.yml`, `leds-gimbal-not-boolean.yml`, `imu-not-boolean.yml` |
 | `variants[].path` ends in `.yml`/`.yaml` and stays inside the manifest directory | `invalid-variant-path.yml`, `dotdot-in-variant-path.yml` |
 | `requires[].id` is a canonical package id | `requires-bad-id.yml` |
 | `requires[].version` matches a supported comparator shape | `requires-bad-version-range.yml`, `requires-leading-zero-prerelease.yml` |

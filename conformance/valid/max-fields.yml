@@ -7,7 +7,7 @@
 #   dev          dev-content.yml
 #   source_dir   as a list: multiple-source-dirs.yml
 #
-edgetx_format_version: "1.0"
+edgetx_format_version: "1.1"
 package:
   id: github.com/comprehensive/full-example
   name: Comprehensive Package Example
@@ -38,6 +38,10 @@ package:
       type: colorlcd
       resolution: 480x272
       touch: true
+    leds:
+      strip: true
+      gimbal: true
+    imu: true
 
 libraries:
   - name: UtilLib

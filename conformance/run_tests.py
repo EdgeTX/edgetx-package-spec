@@ -110,7 +110,7 @@ STATE_FAMILY: dict = {}
 ALL_SCHEMAS: dict = {}
 CONTENT_SECTIONS = (
     "libraries", "tools", "widgets", "telemetry", "functions",
-    "mixes", "sounds", "images", "themes", "files"
+    "mixes", "rgbled", "sounds", "images", "themes", "files"
 )
 
 

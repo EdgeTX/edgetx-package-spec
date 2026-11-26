@@ -1,0 +1,10 @@
+# expect: 'lit' is not of type 'boolean'
+# INVALID: `capabilities.leds.strip` is a boolean. A string is rejected rather
+# than read as truthy, so `strip: "no"` cannot quietly mean the opposite.
+edgetx_format_version: "1.1"
+package:
+  id: github.com/acme/bad-led-capability
+  description: Package whose LED strip requirement is not a boolean
+  capabilities:
+    leds:
+      strip: lit

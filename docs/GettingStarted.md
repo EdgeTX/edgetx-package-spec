@@ -80,7 +80,7 @@ bound just loses you users.
 
 ## 4. Declare your content
 
-Ten sections are available. Put each item in the most specific one that fits:
+Eleven sections are available. Put each item in the most specific one that fits:
 
 ```yaml
 libraries:                          # shared code used by your other scripts
@@ -106,6 +106,10 @@ functions:
 mixes:
   - name: MyMix
     path: SCRIPTS/MIXES/MyMix
+
+rgbled:                             # RGB LED scripts (radios with an LED strip)
+  - name: MyLeds
+    path: SCRIPTS/RGBLED/MyLeds
 
 sounds:
   - name: sounds-en
@@ -169,6 +173,25 @@ All `path` values then resolve under `src/`. There is **no fallback** to the
 repository root: if a `path` does not exist under a declared `source_dir`, that
 is an error. This is deliberate — a typo in `source_dir` fails loudly instead
 of quietly installing the wrong files.
+
+### Requiring hardware
+
+If your scripts only work on radios with particular hardware, say so, and
+tooling will refuse to install them anywhere else:
+
+```yaml
+package:
+  capabilities:
+    display:
+      type: colorlcd              # color LCD radios only
+    leds:
+      strip: true                 # radios with an RGB LED strip only
+    imu: true                     # radios with a gyro/accelerometer only
+```
+
+Declare only what your scripts genuinely need — each field you add is a radio
+someone cannot install on. Every field is listed in
+[Manifest.md § Radio capabilities](./Manifest.md#radio-capabilities).
 
 ### Hardware variants
 

@@ -412,7 +412,7 @@ merge_variant(base, entry, variant):
         merge_capabilities(base.base_capabilities, entry.capabilities_tighten)
 
     for section in [libraries, tools, widgets, telemetry, functions,
-                    mixes, sounds, images, themes, files]:
+                    mixes, rgbled, sounds, images, themes, files]:
         merged[section] =
             (base[section] or [])
             + (entry[section] or [])
@@ -432,14 +432,15 @@ base manifest's package-level constraints are still enforced.
 capabilities_match(filter, radio) -> {matches, unknown}:
     # An omitted filter field is a wildcard. A field the RADIO cannot report is
     # NOT a mismatch — it is unknown, and is reported rather than blocking.
-    if filter is null or filter.display is null:
+    if filter is null:
         return {matches: true, unknown: []}
 
     unknown = []
-    for field in [type, resolution, touch]:
-        if filter.display[field] is not set:     continue      # wildcard
-        if radio.display[field]  is not known:   unknown.append(field); continue
-        if filter.display[field] != radio.display[field]:
+    for field in [display.type, display.resolution, display.touch,
+                  leds.strip, leds.gimbal, imu]:       # the leaf fields
+        if filter[field] is not set:     continue      # wildcard
+        if radio[field]  is not known:   unknown.append(field); continue
+        if filter[field] != radio[field]:
             return {matches: false, unknown: unknown}
     return {matches: true, unknown: unknown}
 ```

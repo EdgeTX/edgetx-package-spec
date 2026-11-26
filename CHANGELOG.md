@@ -23,7 +23,7 @@ know about where 1.0 started.
 What 1.0 covers:
 
 - package identity as repository location, with no separate name registry
-- ten content sections, source and destination paths, and `exclude` patterns
+- eleven content sections, source and destination paths, and `exclude` patterns
 - hardware capability requirements and firmware version bounds
 - hardware variants of one package, selected by capabilities and firmware
 - precompiled `.luac` packages, with one build per firmware generation
